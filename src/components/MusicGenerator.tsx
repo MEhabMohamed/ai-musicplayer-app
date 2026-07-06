@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Song, LyricsLine } from '../types/music';
 import { compileSearchedSong } from '../services/LyricsDatabase';
-import { Sparkles, Terminal, AudioLines, Search, Upload, Plus, BookOpen, Music, Library, ChevronDown, WifiOff, Clock } from 'lucide-react';
+import { Sparkles, Terminal, AudioLines, Search, Upload, Plus, BookOpen, ChevronDown, WifiOff, Clock } from 'lucide-react';
 
 interface MusicGeneratorProps {
   onSongGenerated: (song: Song) => void;
+  onSourceChange?: (source: SearchSource) => void;
 }
 
-type SearchSource = 'music' | 'quran' | 'archive';
+type SearchSource = 'quran' | 'recitation';
 
 const FALLBACK_CHAPTERS = [
   { id: 1, name_simple: "Al-Fatihah", name_arabic: "الفاتحة", verses_count: 7, translated_name: { name: "The Opening" } },
@@ -40,6 +41,74 @@ const VERIFIED_RECITERS = [
   { id: 10, name: "Sa'ud ash-Shuraim", style: "Murattal" },
   { id: 97, name: "Yasser Ad Dussary", style: "Murattal" },
   { id: 174, name: "Yasser Ad Dussary (Alternate)", style: "Murattal" }
+];
+
+const FALLBACK_MP3QURAN_RECITERS = [
+  {
+    id: 123,
+    name: "Mishary Alafasi",
+    moshaf: [
+      {
+        id: 123,
+        name: "Rewayat Hafs A'n Assem - Murattal",
+        server: "https://server8.mp3quran.net/afs/",
+        surah_total: 114,
+        surah_list: Array.from({ length: 114 }, (_, i) => String(i + 1)).join(',')
+      }
+    ]
+  },
+  {
+    id: 102,
+    name: "Maher Al Meaqli",
+    moshaf: [
+      {
+        id: 102,
+        name: "Rewayat Hafs A'n Assem - Murattal",
+        server: "https://server12.mp3quran.net/maher/",
+        surah_total: 114,
+        surah_list: Array.from({ length: 114 }, (_, i) => String(i + 1)).join(',')
+      }
+    ]
+  },
+  {
+    id: 30,
+    name: "Saad Al-Ghamdi",
+    moshaf: [
+      {
+        id: 30,
+        name: "Rewayat Hafs A'n Assem - Murattal",
+        server: "https://server7.mp3quran.net/s_gmd/",
+        surah_total: 114,
+        surah_list: Array.from({ length: 114 }, (_, i) => String(i + 1)).join(',')
+      }
+    ]
+  },
+  {
+    id: 31,
+    name: "Saud Al-Shuraim",
+    moshaf: [
+      {
+        id: 31,
+        name: "Rewayat Hafs A'n Assem - Murattal",
+        server: "https://server7.mp3quran.net/shur/",
+        surah_total: 114,
+        surah_list: Array.from({ length: 114 }, (_, i) => String(i + 1)).join(',')
+      }
+    ]
+  },
+  {
+    id: 51,
+    name: "Abdulbasit Abdulsamad",
+    moshaf: [
+      {
+        id: 51,
+        name: "Rewayat Hafs A'n Assem - Murattal",
+        server: "https://server7.mp3quran.net/basit/",
+        surah_total: 114,
+        surah_list: Array.from({ length: 114 }, (_, i) => String(i + 1)).join(',')
+      }
+    ]
+  }
 ];
 
 const RECITER_URL_TEMPLATES: Record<number, { template: string, padDigits: number }> = {
@@ -75,18 +144,28 @@ function constructFallbackAudioUrl(reciterId: number, surahNum: number): string 
   return conf.template.replace("{num}", formattedNum);
 }
 
-export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated }) => {
-  const [searchSource, setSearchSource] = useState<SearchSource>('music');
+export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated, onSourceChange }) => {
+  const [searchSource, setSearchSource] = useState<SearchSource>('quran');
   const [title, setTitle] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [addingTrackId, setAddingTrackId] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [chapters, setChapters] = useState<any[]>([]);
+  
+  // Quran with ayat reciter selection states
   const reciters = VERIFIED_RECITERS;
   const [selectedReciterId, setSelectedReciterId] = useState<number>(7);
   const [reciterSearchQuery, setReciterSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const reciterComboboxRef = useRef<HTMLDivElement | null>(null);
+
+  // Recitation only (MP3Quran API) states
+  const [mp3Reciters, setMp3Reciters] = useState<any[]>([]);
+  const [selectedMp3ReciterId, setSelectedMp3ReciterId] = useState<number>(123); // Default to Mishary
+  const [mp3ReciterSearchQuery, setMp3ReciterSearchQuery] = useState('');
+  const [isMp3DropdownOpen, setIsMp3DropdownOpen] = useState(false);
+  const mp3ReciterComboboxRef = useRef<HTMLDivElement | null>(null);
 
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
   const [loadingStatus, setLoadingStatus] = useState<'idle' | 'loading' | 'warning' | 'error'>('idle');
@@ -95,15 +174,21 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated 
   const filteredReciters = reciters.filter(r =>
     r.name.toLowerCase().includes(reciterSearchQuery.toLowerCase())
   );
-
   const selectedReciter = reciters.find(r => r.id === selectedReciterId) || reciters[0];
-  const reciterComboboxRef = useRef<HTMLDivElement | null>(null);
 
-  // Click outside handler to close the reciter combobox dropdown
+  const filteredMp3Reciters = mp3Reciters.filter(r =>
+    r.name.toLowerCase().includes(mp3ReciterSearchQuery.toLowerCase())
+  );
+  const selectedMp3Reciter = mp3Reciters.find(r => r.id === selectedMp3ReciterId) || mp3Reciters[0] || FALLBACK_MP3QURAN_RECITERS[0];
+
+  // Click outside handler to close the dropdowns
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (reciterComboboxRef.current && !reciterComboboxRef.current.contains(e.target as Node)) {
         setIsDropdownOpen(false);
+      }
+      if (mp3ReciterComboboxRef.current && !mp3ReciterComboboxRef.current.contains(e.target as Node)) {
+        setIsMp3DropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -120,7 +205,7 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated 
     }
   }, [logs]);
 
-  // Fetch Quran Chapters List on mount
+  // Fetch Quran Chapters List & MP3Quran Reciters on mount
   useEffect(() => {
     const fetchChapters = async () => {
       try {
@@ -138,7 +223,24 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated 
       setChapters(FALLBACK_CHAPTERS);
     };
 
+    const fetchMp3Reciters = async () => {
+      try {
+        const response = await fetch('https://www.mp3quran.net/api/v3/reciters?language=eng');
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data.reciters) && data.reciters.length > 0) {
+            setMp3Reciters(data.reciters);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("MP3Quran reciters API call failed. Using fallback list.", err);
+      }
+      setMp3Reciters(FALLBACK_MP3QURAN_RECITERS);
+    };
+
     fetchChapters();
+    fetchMp3Reciters();
   }, []);
 
   // Source selection helper
@@ -146,6 +248,9 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated 
     setSearchSource(source);
     setSearchResults([]);
     setTitle('');
+    if (onSourceChange) {
+      onSourceChange(source);
+    }
   };
 
   // Main search handler
@@ -156,37 +261,7 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated 
     setIsGenerating(true);
     setSearchResults([]);
 
-    if (searchSource === 'music') {
-      setLogs([`[JAMENDO-INIT] Querying Jamendo library for "${title}"...`]);
-      try {
-        const client_id = '3dce8b55';
-        const searchUrl = `https://api.jamendo.com/v3.0/tracks/?client_id=${client_id}&format=json&limit=5&search=${encodeURIComponent(title)}`;
-        const response = await fetch(searchUrl);
-        if (!response.ok) {
-          throw new Error(`Jamendo server error: ${response.status}`);
-        }
-        const data = await response.json();
-        const results = data.results;
-
-        if (Array.isArray(results) && results.length > 0) {
-          setSearchResults(results);
-          setLogs(prev => [
-            ...prev,
-            `[SUCCESS] Found ${results.length} tracks matching search query.`,
-            `[INFO] Click the '+' button in front of any track to add it to your playlist.`
-          ]);
-        } else {
-          setLogs(prev => [
-            ...prev,
-            `[WARNING] No search matches found on Jamendo for "${title}".`
-          ]);
-        }
-      } catch (err: any) {
-        setLogs(prev => [...prev, `[ERROR] Jamendo search failed: ${err.message || err}`]);
-      } finally {
-        setIsGenerating(false);
-      }
-    } else if (searchSource === 'quran') {
+    if (searchSource === 'quran') {
       setLogs([`[QURAN-INIT] Searching Quran chapters index for "${title}"...`]);
       await new Promise(resolve => setTimeout(resolve, 300));
 
@@ -225,42 +300,58 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated 
         ]);
       }
       setIsGenerating(false);
-    } else {
-      // Archive.org public domain audio search
-      setLogs([`[ARCHIVE-INIT] Searching Archive.org public domain audio library for "${title}"...`]);
-      try {
-        const searchUrl = `https://archive.org/advancedsearch.php?q=${encodeURIComponent(title)}+AND+mediatype:audio&fl[]=identifier,title,creator,downloads&sort[]=downloads+desc&output=json&rows=5`;
-        const response = await fetch(searchUrl);
-        if (!response.ok) {
-          throw new Error(`Archive.org server error: ${response.status}`);
-        }
-        const data = await response.json();
-        const docs = data.response?.docs;
+    } else if (searchSource === 'recitation') {
+      setLogs([`[REC-INIT] Searching Quran chapters for "${title}"...`]);
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-        if (Array.isArray(docs) && docs.length > 0) {
-          setSearchResults(docs.map(doc => ({
-            id: `archive-${doc.identifier}`,
-            isArchive: true,
-            identifier: doc.identifier,
-            name: doc.title || "Unknown Title",
-            artist_name: doc.creator || "Archive.org Public Domain"
-          })));
-          setLogs(prev => [
-            ...prev,
-            `[SUCCESS] Found ${docs.length} public domain files on Archive.org.`,
-            `[INFO] Click the '+' button to resolve and stream the audio.`
-          ]);
-        } else {
-          setLogs(prev => [
-            ...prev,
-            `[WARNING] No public domain audio files found matching "${title}".`
-          ]);
+      const query = title.trim().toLowerCase();
+      const numQuery = parseInt(query);
+
+      // Find the best Moshaf for the selected reciter to get their surah_list
+      const activeReciter = selectedMp3Reciter;
+      let availableSurahs: string[] = [];
+      if (activeReciter && activeReciter.moshaf) {
+        const bestM = [...activeReciter.moshaf].sort((a, b) => (b.surah_total || 0) - (a.surah_total || 0))[0];
+        if (bestM && bestM.surah_list) {
+          availableSurahs = bestM.surah_list.split(',');
         }
-      } catch (err: any) {
-        setLogs(prev => [...prev, `[ERROR] Archive.org search failed: ${err.message || err}`]);
-      } finally {
-        setIsGenerating(false);
       }
+
+      // Filter matches
+      const matched = chapters.filter(ch => {
+        if (availableSurahs.length > 0 && !availableSurahs.includes(String(ch.id))) {
+          return false;
+        }
+        if (!isNaN(numQuery)) {
+          return ch.id === numQuery;
+        }
+        return ch.name_simple.toLowerCase().includes(query) ||
+          ch.translated_name.name.toLowerCase().includes(query);
+      });
+
+      if (matched.length > 0) {
+        setSearchResults(matched.map(ch => ({
+          id: `recitation-ch-${ch.id}`,
+          isRecitationOnly: true,
+          chapterId: ch.id,
+          name: `Surah ${ch.name_simple} (${ch.name_arabic})`,
+          artist_name: `Reciter: ${activeReciter.name}`,
+          verses_count: ch.verses_count,
+          name_simple: ch.name_simple
+        })));
+        setLogs(prev => [
+          ...prev,
+          `[SUCCESS] Found ${matched.length} Surahs matching "${title}" for ${activeReciter.name}.`,
+          `[INFO] Click the '+' button in front of a Surah to stream it.`
+        ]);
+      } else {
+        setLogs(prev => [
+          ...prev,
+          `[WARNING] No matching Surahs found for "${title}" recorded by ${activeReciter.name || "selected reciter"}.`,
+          `[INFO] Try searching a Surah name (e.g. 'Fatihah', 'Yaseen') or number (1 to 114).`
+        ]);
+      }
+      setIsGenerating(false);
     }
   };
 
@@ -442,139 +533,80 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated 
         setLogs(prev => [...prev, `[SUCCESS] Surah successfully added to playlist.`]);
         onSongGenerated(newSong);
 
-      } else if (track.isArchive) {
+      } else if (track.isRecitationOnly) {
+        const activeReciter = selectedMp3Reciter;
+        const surahNum = track.chapterId;
+
         setLogs(prev => [
           ...prev,
-          `[ARCHIVE-LOAD] Resolving metadata files for identifier "${track.identifier}"...`
+          `[REC-LOAD] Loading Surah ${track.name_simple} recitation by ${activeReciter.name}...`,
+          `[PROCESS] Resolving MP3 URL from MP3Quran servers...`
         ]);
 
-        // Query metadata endpoint of archive.org
-        const metadataUrl = `https://archive.org/metadata/${track.identifier}`;
-        const metaRes = await fetch(metadataUrl);
-        if (!metaRes.ok) {
-          throw new Error(`Failed to fetch metadata from Archive.org`);
+        setLoadingStatus('loading');
+        setLoadingProgress(null);
+        setLoadingMessage('Resolving MP3 URL...');
+
+        if (!activeReciter || !activeReciter.moshaf || activeReciter.moshaf.length === 0) {
+          throw new Error("Selected reciter has no audio streams available.");
         }
 
-        const metaData = await metaRes.json();
-        const files = metaData.files || [];
-        const mp3File = files.find((f: any) => f.name.endsWith('.mp3'));
+        // Find the moshaf that contains the surah
+        const matchedMoshaf = activeReciter.moshaf.find((m: any) => {
+          const list = (m.surah_list || "").split(',');
+          return list.includes(String(surahNum));
+        }) || [...activeReciter.moshaf].sort((a, b) => (b.surah_total || 0) - (a.surah_total || 0))[0];
 
-        if (!mp3File) {
-          throw new Error("No streamable MP3 file found in the Archive.org entry.");
+        const serverUrl = matchedMoshaf.server;
+        if (!serverUrl) {
+          throw new Error("No server URL found for this reciter.");
         }
 
-        const audioUrl = `https://archive.org/download/${track.identifier}/${encodeURIComponent(mp3File.name)}`;
+        const paddedSurah = String(surahNum).padStart(3, '0');
+        const audioUrl = `${serverUrl}${paddedSurah}.mp3`;
 
         setLogs(prev => [
           ...prev,
-          `[OK] Stream resolved: ${mp3File.name}`,
+          `[OK] Stream URL resolved: ${audioUrl}`,
           `[PROCESS] Extracting track duration...`
         ]);
 
+        // Calculate duration dynamically via a temporary Audio node
         const tempAudio = new Audio(audioUrl);
+        tempAudio.preload = "metadata";
+        tempAudio.load();
         await new Promise<void>((resolve) => {
           tempAudio.onloadedmetadata = () => resolve();
           tempAudio.onerror = () => resolve();
-          setTimeout(resolve, 2500);
+          setTimeout(resolve, 5000); // 5s max wait for metadata
         });
 
-        const duration = tempAudio.duration || parseFloat(mp3File.length) || 180;
+        const duration = tempAudio.duration || 120; // default/fallback 120s if fails
 
         setLogs(prev => [
           ...prev,
           `[OK] Duration locked: ${Math.round(duration)}s.`,
-          `[PROCESS] Compiling song container...`
+          `[PROCESS] Compiling recitation container...`
         ]);
 
         const newSong: Song = {
           id: `${track.id}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           title: track.name,
-          artist: track.artist_name,
+          artist: activeReciter.name,
           genre: 'minimalist',
-          tempo: 100,
+          tempo: 60,
           key: 'C',
-          lyrics: [
-            { text: `Archive Source: ${track.name}`, time: 2, duration: 4 },
-            { text: `Creator: ${track.artist_name}`, time: 7, duration: 4 },
-            { text: "🎵 enjoy the free source audio 🎵", time: 15, duration: duration - 16 }
-          ],
+          lyrics: [], // REMOVE LYRICS! Empty array means no lyrics timeline.
           chords: [],
           seed: Math.random(),
           duration: duration,
           audioUrl: audioUrl
         };
 
-        setLogs(prev => [...prev, `[SUCCESS] Archive track successfully added to playlist.`]);
-        onSongGenerated(newSong);
-
-      } else {
-        // Standard Jamendo Music Add
-        setLogs(prev => [
-          ...prev,
-          `[JAMENDO-ADD] Preparing track "${track.name}"...`,
-          `[PROCESS] Fetching lyrics from lrclib.net...`
-        ]);
-
-        let lyricsContent = '';
-        let isSynced = false;
-        try {
-          const lyricsSearchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(track.name + ' ' + track.artist_name)}`;
-          const lyrSearchRes = await fetch(lyricsSearchUrl, {
-            headers: { 'User-Agent': 'AetheriaVocalPlayer/2.5' }
-          });
-          if (lyrSearchRes.ok) {
-            const lyrResults = await lyrSearchRes.json();
-            if (Array.isArray(lyrResults) && lyrResults.length > 0) {
-              const bestLyr = lyrResults[0];
-              const detailsRes = await fetch(`https://lrclib.net/api/get/${bestLyr.id}`);
-              if (detailsRes.ok) {
-                const detail = await detailsRes.json();
-                lyricsContent = detail.syncedLyrics || detail.plainLyrics || '';
-                isSynced = !!detail.syncedLyrics;
-              }
-            }
-          }
-        } catch (err) {
-          console.error("Lyrics fetch failed:", err);
-        }
-
-        let parsedLyrics: LyricsLine[] = [];
-        if (lyricsContent) {
-          setLogs(prev => [
-            ...prev,
-            `[OK] Lyrics downloaded successfully. (${isSynced ? 'Synced LRC format' : 'Plain text format'})`,
-            `[PROCESS] Compiling song container...`
-          ]);
-          const compiled = compileSearchedSong(track.name, track.artist_name, lyricsContent, isSynced, track.duration, 'synthwave');
-          parsedLyrics = compiled.lyrics;
-        } else {
-          setLogs(prev => [
-            ...prev,
-            `[WARNING] Lyrics not found on internet. Creating standard timeline...`,
-            `[PROCESS] Compiling song container...`
-          ]);
-          parsedLyrics = [
-            { text: `Track: ${track.name}`, time: 2, duration: 4 },
-            { text: `Artist: ${track.artist_name}`, time: 7, duration: 4 },
-            { text: "🎵 enjoy the music 🎵", time: 15, duration: track.duration - 16 }
-          ];
-        }
-
-        const newSong: Song = {
-          id: `jamendo-${track.id}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          title: track.name,
-          artist: track.artist_name,
-          genre: 'synthwave',
-          tempo: 120,
-          key: 'C',
-          lyrics: parsedLyrics,
-          chords: [],
-          seed: Math.random(),
-          duration: track.duration,
-          audioUrl: track.audio
-        };
-
-        setLogs(prev => [...prev, `[SUCCESS] Track successfully added to playlist.`]);
+        setLoadingStatus('idle');
+        setLoadingMessage('');
+        setLoadingProgress(null);
+        setLogs(prev => [...prev, `[SUCCESS] Recitation successfully added to playlist.`]);
         onSongGenerated(newSong);
       }
     } catch (err: any) {
@@ -718,30 +750,21 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated 
       <div className="flex flex-wrap justify-center gap-2 mb-1" id="search-source-selector">
         <button
           type="button"
-          onClick={() => selectSource('music')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${searchSource === 'music' ? 'btn-active shadow-sm' : 'btn-inactive'
-            }`}
-        >
-          <Music className="w-3.5 h-3.5 mr-1" />
-          Jamendo Music
-        </button>
-        <button
-          type="button"
           onClick={() => selectSource('quran')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${searchSource === 'quran' ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
         >
           <BookOpen className="w-3.5 h-3.5 mr-1" />
-          Quran
+          Quran with ayat
         </button>
         <button
           type="button"
-          onClick={() => selectSource('archive')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${searchSource === 'archive' ? 'btn-active shadow-sm' : 'btn-inactive'
+          onClick={() => selectSource('recitation')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${searchSource === 'recitation' ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
         >
-          <Library className="w-3.5 h-3.5 mr-1" />
-          Archive.org
+          <AudioLines className="w-3.5 h-3.5 mr-1" />
+          Recitation only
         </button>
       </div>
 
@@ -819,6 +842,79 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated 
           </div>
         )}
 
+        {searchSource === 'recitation' && (
+          <div ref={mp3ReciterComboboxRef} className="flex flex-col gap-1.5 relative" id="mp3-reciter-selector-wrapper">
+            <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider select-none">
+              Select MP3 Reciter
+            </label>
+
+            {/* Search Input with integrated toggle arrow */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder={selectedMp3Reciter?.name || "Select Reciter..."}
+                value={mp3ReciterSearchQuery}
+                onChange={(e) => {
+                  setMp3ReciterSearchQuery(e.target.value);
+                  if (e.target.value !== "") {
+                    setIsMp3DropdownOpen(true);
+                  }
+                  else {
+                    setIsMp3DropdownOpen(false);
+                  }
+                }}
+                className="w-full pl-3 pr-8 py-2 text-xs rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] text-theme-primary placeholder-theme-primary focus:placeholder-theme-muted focus:outline-none focus:border-[var(--accent-primary)] hover:border-[var(--accent-secondary)] transition-all"
+                id="mp3-reciter-search"
+              />
+              <button
+                type="button"
+                onClick={() => setIsMp3DropdownOpen(!isMp3DropdownOpen)}
+                className="absolute p-1 bg-transparent border-0 text-theme-muted hover:text-theme-primary cursor-pointer focus:outline-none flex items-center justify-center"
+                style={{ top: '50%', transform: 'translateY(-50%)', right: '10px' }}
+                title="Toggle Reciter List"
+              >
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isMp3DropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+
+            {/* Scrollable Reciter Options List */}
+            {isMp3DropdownOpen && (
+              <div
+                className="flex flex-col gap-1 max-h-36 overflow-y-auto border border-[var(--border-color)] rounded-xl p-1.5 bg-[var(--bg-primary)] shadow-lg absolute z-20 left-0 right-0 top-full mt-1"
+                id="mp3-reciters-list"
+              >
+                {/* List items selection */}
+                {((mp3ReciterSearchQuery.trim() !== '') ? filteredMp3Reciters : mp3Reciters).length === 0 ? (
+                  <span className="text-[10px] text-theme-muted p-1 text-center select-none">No reciters found</span>
+                ) : (
+                  ((mp3ReciterSearchQuery.trim() !== '') ? filteredMp3Reciters : mp3Reciters).map((reciter) => {
+                    const isSelected = selectedMp3ReciterId === reciter.id;
+                    return (
+                      <button
+                        key={reciter.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedMp3ReciterId(reciter.id);
+                          setMp3ReciterSearchQuery('');
+                          setIsMp3DropdownOpen(false);
+                          setSearchResults([]); // Reset search results on reciter change to avoid mismatch
+                        }}
+                        className={`px-2.5 py-1.5 rounded text-left text-xs transition-all flex items-center justify-between border-0 cursor-pointer ${isSelected
+                          ? 'btn-active font-semibold shadow-sm'
+                          : 'bg-transparent text-theme-muted hover:bg-white/5 hover:text-theme-primary'
+                          }`}
+                      >
+                        <span>{reciter.name}</span>
+                        {isSelected && <span className="text-[9px] uppercase tracking-widest font-mono opacity-80">Selected</span>}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <form onSubmit={handleGenerate} className="flex gap-2">
           <div className="search-input-wrapper">
             <input
@@ -828,11 +924,9 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={
-                searchSource === 'music'
-                  ? "Search Jamendo (e.g. lofi, acoustic, rock)..."
-                  : searchSource === 'quran'
-                    ? "Enter Surah name or number (e.g. Yaseen, Mulk, 1)..."
-                    : "Search Archive.org public domain audio..."
+                searchSource === 'quran'
+                  ? "Enter Surah name or number (e.g. Yaseen, Mulk, 1)..."
+                  : "Search Surah name or number for recitation..."
               }
               className="search-input"
             />

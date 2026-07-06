@@ -442,6 +442,12 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--border-focus);
 }
 
+input[type="range"] {
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 9999px !important;
+}
+
 /* Accent Gradients */
 .bg-gradient-to-r {
   background-image: linear-gradient(to right, var(--accent-primary), var(--accent-tertiary));
@@ -720,21 +726,24 @@ body.theme-minimalist .btn-active {
 }
 
 /* Combobox input placeholder styling to mimic selected text when unfocused */
-#quran-reciter-search::placeholder {
+#quran-reciter-search::placeholder,
+#mp3-reciter-search::placeholder {
   color: var(--text-primary);
   opacity: 1 !important;
   font-weight: 500;
   transition: all 0.2s ease;
 }
 
-#quran-reciter-search:focus::placeholder {
+#quran-reciter-search:focus::placeholder,
+#mp3-reciter-search:focus::placeholder {
   color: var(--text-muted);
   opacity: 0.5 !important;
   font-weight: 400;
 }
 
 /* Quran Reciter dropdown list z-index and opacity fix */
-#quran-reciters-list {
+#quran-reciters-list,
+#mp3-reciters-list {
   background-color: var(--bg-primary) !important;
   opacity: 1 !important;
   z-index: 50 !important;
@@ -742,7 +751,9 @@ body.theme-minimalist .btn-active {
 }
 
 body.theme-cozy #quran-reciters-list,
-body.theme-minimalist #quran-reciters-list {
+body.theme-cozy #mp3-reciters-list,
+body.theme-minimalist #quran-reciters-list,
+body.theme-minimalist #mp3-reciters-list {
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
 }
 

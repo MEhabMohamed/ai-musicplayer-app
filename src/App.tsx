@@ -16,6 +16,7 @@ export default function App() {
 
   // Player state
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showLyricsSection, setShowLyricsSection] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(0.8);
   const [currentTime, setCurrentTime] = useState(0);
@@ -36,6 +37,18 @@ export default function App() {
   useEffect(() => {
     document.body.className = `theme-${activeTheme}`;
   }, [activeTheme]);
+
+  // Register dynamic duration listener on mount to resolve true durations of tracks
+  useEffect(() => {
+    audioEngine.current.registerDurationCallback((loadedDuration) => {
+      if (loadedDuration && loadedDuration > 0 && loadedDuration !== Infinity) {
+        setDuration(loadedDuration);
+        setSongs(prevSongs => prevSongs.map(song => 
+          song.id === currentSongId ? { ...song, duration: loadedDuration } : song
+        ));
+      }
+    });
+  }, [currentSongId]);
 
   // Handle media player time ticker update & auto-play-next check
   useEffect(() => {
@@ -248,10 +261,6 @@ export default function App() {
 
         {/* Left Hand: Creation & Inventory controls (5 cols) */}
         <section className="lg:col-span-5 flex flex-col gap-4 overflow-y-auto pr-1">
-          <div className="glass-panel p-4 flex flex-col gap-3">
-            <MusicGenerator onSongGenerated={handleAddSong} />
-          </div>
-
           <div className="glass-panel p-4 flex-1 flex flex-col min-h-[250px]">
             <PlaylistManager
               songs={songs}
@@ -259,6 +268,13 @@ export default function App() {
               isPlaying={isPlaying}
               onSelectSong={selectTrack}
               onRemoveSong={handleRemoveSong}
+            />
+          </div>
+
+          <div className="glass-panel p-4 flex flex-col gap-3">
+            <MusicGenerator 
+              onSongGenerated={handleAddSong} 
+              onSourceChange={(source) => setShowLyricsSection(source === 'quran')}
             />
           </div>
         </section>
@@ -282,30 +298,35 @@ export default function App() {
             />
 
             {/* Glowing Lyrics Screen */}
-            <div
-              className="flex-1 flex flex-col justify-center items-center text-center p-6 bg-[var(--bg-screen)] rounded-xl border border-[var(--border-color)] shadow-inner min-h-[100px] relative overflow-hidden"
-              id="lyrics-screen-display"
-            >
-              {/* Scanline grid overlay */}
-              <div className="absolute inset-0 bg-scanlines pointer-events-none opacity-5" />
-
-              <span className="text-[10px] font-serif text-[var(--accent-secondary)] uppercase tracking-widest mb-3 flex items-center gap-1 select-none">
-                <Languages className="w-3.5 h-3.5" /> Lyrics Timeline
-              </span>
-
-              <p
-                className={`text-base sm:text-lg font-bold tracking-wide transition-all duration-300 ${isPlaying
-                  ? 'text-theme-primary scale-[1.01] filter drop-shadow-[0_0_8px_var(--accent-primary)]'
-                  : 'text-[var(--text-screen-muted)]'
-                  }`}
+            {(currentSong 
+              ? (currentSong.lyrics && currentSong.lyrics.length > 0) 
+              : showLyricsSection
+            ) && (
+              <div
+                className="flex-1 flex flex-col justify-center items-center text-center p-6 bg-[var(--bg-screen)] rounded-xl border border-[var(--border-color)] shadow-inner min-h-[100px] relative overflow-hidden"
+                id="lyrics-screen-display"
               >
-                {currentLyricText.split('\n').map((line, idx) => (
-                  <span key={idx} style={{ display: 'block', marginTop: idx > 0 ? '0.35rem' : 0 }}>
-                    {line}
-                  </span>
-                ))}
-              </p>
-            </div>
+                {/* Scanline grid overlay */}
+                <div className="absolute inset-0 bg-scanlines pointer-events-none opacity-5" />
+
+                <span className="text-[10px] font-serif text-[var(--accent-secondary)] uppercase tracking-widest mb-3 flex items-center gap-1 select-none">
+                  <Languages className="w-3.5 h-3.5" /> Lyrics Timeline
+                </span>
+
+                <p
+                  className={`text-base sm:text-lg font-bold tracking-wide transition-all duration-300 ${isPlaying
+                    ? 'text-theme-primary scale-[1.01] filter drop-shadow-[0_0_8px_var(--accent-primary)]'
+                    : 'text-[var(--text-screen-muted)]'
+                    }`}
+                >
+                  {currentLyricText.split('\n').map((line, idx) => (
+                    <span key={idx} style={{ display: 'block', marginTop: idx > 0 ? '0.35rem' : 0 }}>
+                      {line}
+                    </span>
+                  ))}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Player controls */}

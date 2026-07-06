@@ -15,9 +15,14 @@ export class AudioEngine {
   private volume = 0.8;
   
   public voiceAmplitude = 0.0; // Keep field for visualizer compatibility
+  private durationCallback: ((duration: number) => void) | null = null;
 
   constructor() {
     // Context is initialized on user interaction
+  }
+
+  public registerDurationCallback(cb: (duration: number) => void) {
+    this.durationCallback = cb;
   }
 
   public init() {
@@ -34,6 +39,18 @@ export class AudioEngine {
     // Create and configure HTML5 Audio Element
     this.audioEl = new Audio();
     this.audioEl.crossOrigin = "anonymous";
+
+    this.audioEl.addEventListener('durationchange', () => {
+      if (this.audioEl && this.durationCallback) {
+        this.durationCallback(this.audioEl.duration);
+      }
+    });
+
+    this.audioEl.addEventListener('loadedmetadata', () => {
+      if (this.audioEl && this.durationCallback) {
+        this.durationCallback(this.audioEl.duration);
+      }
+    });
     
     // Route Audio Element -> SourceNode -> Analyser -> MasterGain -> Destination
     this.sourceNode = this.ctx.createMediaElementSource(this.audioEl);

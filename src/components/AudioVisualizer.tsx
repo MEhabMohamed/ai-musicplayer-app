@@ -261,9 +261,9 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
   ];
 
   return (
-    <div className="w-full flex flex-col items-center gap-3 h-[240px] sm:h-[280px]">
+    <div className="w-full flex-1 flex flex-col items-center gap-3 min-h-[200px]">
       {/* Canvas */}
-      <div className="relative w-full h-[180px] sm:h-[220px] rounded-xl overflow-hidden border border-[var(--border-color)] bg-[var(--bg-panel)]">
+      <div className="relative w-full flex-1 rounded-xl overflow-hidden border border-[var(--border-color)] bg-[var(--bg-panel)] min-h-[140px]">
         <canvas
           ref={canvasRef}
           className="w-full h-full block"
