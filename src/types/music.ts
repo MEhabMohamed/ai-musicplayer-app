@@ -52,5 +52,3 @@ export interface Theme {
   name: string;
   description: string;
 }
-
-export type VisualizerMode = 'sonic-waves' | 'retro-bars' | 'heartbeat-pulse' | 'matrix-rain';

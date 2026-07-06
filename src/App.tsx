@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Song, ThemeId, VisualizerMode } from './types/music';
+import type { Song, ThemeId } from './types/music';
 import { AudioEngine } from './services/AudioEngine';
-import { AudioVisualizer } from './components/AudioVisualizer';
 import { SongTicker } from './components/SongTicker';
 import { MusicGenerator } from './components/MusicGenerator';
 import { PlaylistManager } from './components/PlaylistManager';
@@ -12,7 +11,6 @@ export default function App() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [currentSongId, setCurrentSongId] = useState<string | null>(null);
   const [activeTheme, setActiveTheme] = useState<ThemeId>('cyberpunk');
-  const activeVisualizer: VisualizerMode = 'sonic-waves';
 
   // Player state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -287,16 +285,8 @@ export default function App() {
             <SongTicker song={currentSong} isPlaying={isPlaying} />
           </div>
 
-          {/* Visualizer Display Screen & Karaoke Lyrics */}
+          {/* Karaoke Lyrics */}
           <div className="glass-panel p-4 flex-1 flex flex-col justify-between gap-4 min-h-[300px]">
-            {/* Visualizer */}
-            <AudioVisualizer
-              analyser={audioEngine.current.getAnalyser()}
-              isPlaying={isPlaying}
-              mode={activeVisualizer}
-              voiceAmplitude={0}
-            />
-
             {/* Glowing Lyrics Screen */}
             {(currentSong 
               ? (currentSong.lyrics && currentSong.lyrics.length > 0) 
