@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Song, LyricsLine } from '../types/music';
 import { compileSearchedSong } from '../services/LyricsDatabase';
-import { Sparkles, Terminal, AudioLines, Search, Upload, Plus, BookOpen, ChevronDown, WifiOff, Clock } from 'lucide-react';
+import { Sparkles, Terminal, AudioLines, Upload, BookOpen, ChevronDown, WifiOff, Clock } from 'lucide-react';
 
 interface MusicGeneratorProps {
   onSongGenerated: (song: Song) => void;
@@ -146,26 +146,29 @@ function constructFallbackAudioUrl(reciterId: number, surahNum: number): string 
 
 export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated, onSourceChange }) => {
   const [searchSource, setSearchSource] = useState<SearchSource>('quran');
-  const [title, setTitle] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [addingTrackId, setAddingTrackId] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [chapters, setChapters] = useState<any[]>([]);
   
   // Quran with ayat reciter selection states
   const reciters = VERIFIED_RECITERS;
-  const [selectedReciterId, setSelectedReciterId] = useState<number>(7);
+  const [selectedReciterId, setSelectedReciterId] = useState<number>(13);
   const [reciterSearchQuery, setReciterSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const reciterComboboxRef = useRef<HTMLDivElement | null>(null);
 
   // Recitation only (MP3Quran API) states
   const [mp3Reciters, setMp3Reciters] = useState<any[]>([]);
-  const [selectedMp3ReciterId, setSelectedMp3ReciterId] = useState<number>(123); // Default to Mishary
+  const [selectedMp3ReciterId, setSelectedMp3ReciterId] = useState<number>(30); // Default to Saad Al-Ghamdi
   const [mp3ReciterSearchQuery, setMp3ReciterSearchQuery] = useState('');
   const [isMp3DropdownOpen, setIsMp3DropdownOpen] = useState(false);
   const mp3ReciterComboboxRef = useRef<HTMLDivElement | null>(null);
+
+  // Surah selection combobox states
+  const [surahSearchQuery, setSurahSearchQuery] = useState('');
+  const [isSurahDropdownOpen, setIsSurahDropdownOpen] = useState(false);
+  const surahComboboxRef = useRef<HTMLDivElement | null>(null);
 
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
   const [loadingStatus, setLoadingStatus] = useState<'idle' | 'loading' | 'warning' | 'error'>('idle');
@@ -181,6 +184,53 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
   );
   const selectedMp3Reciter = mp3Reciters.find(r => r.id === selectedMp3ReciterId) || mp3Reciters[0] || FALLBACK_MP3QURAN_RECITERS[0];
 
+  // Memoized lists for Surah selection
+  const availableSurahs = React.useMemo(() => {
+    if (selectedMp3Reciter && selectedMp3Reciter.moshaf) {
+      const bestM = [...selectedMp3Reciter.moshaf].sort((a, b) => (b.surah_total || 0) - (a.surah_total || 0))[0];
+      if (bestM && bestM.surah_list) {
+        return bestM.surah_list.split(',');
+      }
+    }
+    return [];
+  }, [selectedMp3Reciter]);
+
+  const filteredChaptersQuran = React.useMemo(() => {
+    const query = surahSearchQuery.trim().toLowerCase();
+    if (!query) return chapters;
+    const numQuery = parseInt(query);
+    return chapters.filter(ch => {
+      if (!isNaN(numQuery)) {
+        return ch.id === numQuery;
+      }
+      return (
+        ch.name_simple.toLowerCase().includes(query) ||
+        ch.translated_name.name.toLowerCase().includes(query) ||
+        ch.name_arabic.includes(query)
+      );
+    });
+  }, [chapters, surahSearchQuery]);
+
+  const filteredChaptersRecitation = React.useMemo(() => {
+    const query = surahSearchQuery.trim().toLowerCase();
+    const numQuery = parseInt(query);
+    return chapters.filter(ch => {
+      // Check if the surah is supported by the selected MP3 reciter
+      if (availableSurahs.length > 0 && !availableSurahs.includes(String(ch.id))) {
+        return false;
+      }
+      if (!query) return true;
+      if (!isNaN(numQuery)) {
+        return ch.id === numQuery;
+      }
+      return (
+        ch.name_simple.toLowerCase().includes(query) ||
+        ch.translated_name.name.toLowerCase().includes(query) ||
+        ch.name_arabic.includes(query)
+      );
+    });
+  }, [chapters, surahSearchQuery, availableSurahs]);
+
   // Click outside handler to close the dropdowns
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -189,6 +239,9 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
       }
       if (mp3ReciterComboboxRef.current && !mp3ReciterComboboxRef.current.contains(e.target as Node)) {
         setIsMp3DropdownOpen(false);
+      }
+      if (surahComboboxRef.current && !surahComboboxRef.current.contains(e.target as Node)) {
+        setIsSurahDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -246,114 +299,14 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
   // Source selection helper
   const selectSource = (source: SearchSource) => {
     setSearchSource(source);
-    setSearchResults([]);
-    setTitle('');
+    setSurahSearchQuery('');
+    setIsSurahDropdownOpen(false);
     if (onSourceChange) {
       onSourceChange(source);
     }
   };
 
-  // Main search handler
-  const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isGenerating || !title.trim()) return;
 
-    setIsGenerating(true);
-    setSearchResults([]);
-
-    if (searchSource === 'quran') {
-      setLogs([`[QURAN-INIT] Searching Quran chapters index for "${title}"...`]);
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      const query = title.trim().toLowerCase();
-      const numQuery = parseInt(query);
-
-      // Search by chapter number or simple name match
-      const matched = chapters.filter(ch => {
-        if (!isNaN(numQuery)) {
-          return ch.id === numQuery;
-        }
-        return ch.name_simple.toLowerCase().includes(query) ||
-          ch.translated_name.name.toLowerCase().includes(query);
-      });
-
-      if (matched.length > 0) {
-        setSearchResults(matched.map(ch => ({
-          id: `quran-ch-${ch.id}`,
-          isQuran: true,
-          chapterId: ch.id,
-          name: `Surah ${ch.name_simple} (${ch.name_arabic})`,
-          artist_name: `Verses: ${ch.verses_count} | ${ch.translated_name.name}`,
-          verses_count: ch.verses_count,
-          name_simple: ch.name_simple
-        })));
-        setLogs(prev => [
-          ...prev,
-          `[SUCCESS] Found ${matched.length} Surahs matching "${title}".`,
-          `[INFO] Click the '+' button in front of a Surah to stream it.`
-        ]);
-      } else {
-        setLogs(prev => [
-          ...prev,
-          `[WARNING] No Surahs matching "${title}" found.`,
-          `[INFO] Try searching a Surah name (e.g. 'Fatihah', 'Yaseen') or number (1 to 114).`
-        ]);
-      }
-      setIsGenerating(false);
-    } else if (searchSource === 'recitation') {
-      setLogs([`[REC-INIT] Searching Quran chapters for "${title}"...`]);
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      const query = title.trim().toLowerCase();
-      const numQuery = parseInt(query);
-
-      // Find the best Moshaf for the selected reciter to get their surah_list
-      const activeReciter = selectedMp3Reciter;
-      let availableSurahs: string[] = [];
-      if (activeReciter && activeReciter.moshaf) {
-        const bestM = [...activeReciter.moshaf].sort((a, b) => (b.surah_total || 0) - (a.surah_total || 0))[0];
-        if (bestM && bestM.surah_list) {
-          availableSurahs = bestM.surah_list.split(',');
-        }
-      }
-
-      // Filter matches
-      const matched = chapters.filter(ch => {
-        if (availableSurahs.length > 0 && !availableSurahs.includes(String(ch.id))) {
-          return false;
-        }
-        if (!isNaN(numQuery)) {
-          return ch.id === numQuery;
-        }
-        return ch.name_simple.toLowerCase().includes(query) ||
-          ch.translated_name.name.toLowerCase().includes(query);
-      });
-
-      if (matched.length > 0) {
-        setSearchResults(matched.map(ch => ({
-          id: `recitation-ch-${ch.id}`,
-          isRecitationOnly: true,
-          chapterId: ch.id,
-          name: `Surah ${ch.name_simple} (${ch.name_arabic})`,
-          artist_name: `Reciter: ${activeReciter.name}`,
-          verses_count: ch.verses_count,
-          name_simple: ch.name_simple
-        })));
-        setLogs(prev => [
-          ...prev,
-          `[SUCCESS] Found ${matched.length} Surahs matching "${title}" for ${activeReciter.name}.`,
-          `[INFO] Click the '+' button in front of a Surah to stream it.`
-        ]);
-      } else {
-        setLogs(prev => [
-          ...prev,
-          `[WARNING] No matching Surahs found for "${title}" recorded by ${activeReciter.name || "selected reciter"}.`,
-          `[INFO] Try searching a Surah name (e.g. 'Fatihah', 'Yaseen') or number (1 to 114).`
-        ]);
-      }
-      setIsGenerating(false);
-    }
-  };
 
   const handleAddTrack = async (track: any) => {
     if (addingTrackId) return;
@@ -636,7 +589,6 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
     if (!file) return;
 
     setIsGenerating(true);
-    setSearchResults([]);
     setLogs([`[UPLOAD-INIT] Loading local file: "${file.name}"...`]);
 
     try {
@@ -803,42 +755,42 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
               >
                 <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
-            </div>
 
-            {/* Scrollable Reciter Options List */}
-            {isDropdownOpen && (
-              <div
-                className="flex flex-col gap-1 max-h-36 overflow-y-auto border border-[var(--border-color)] rounded-xl p-1.5 bg-[var(--bg-primary)] shadow-lg absolute z-20 left-0 right-0 top-full mt-1"
-                id="quran-reciters-list"
-              >
-                {/* List items selection */}
-                {((reciterSearchQuery.trim() !== '') ? filteredReciters : reciters).length === 0 ? (
-                  <span className="text-[10px] text-theme-muted p-1 text-center select-none">No reciters found</span>
-                ) : (
-                  ((reciterSearchQuery.trim() !== '') ? filteredReciters : reciters).map((reciter) => {
-                    const isSelected = selectedReciterId === reciter.id;
-                    return (
-                      <button
-                        key={reciter.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedReciterId(reciter.id);
-                          setReciterSearchQuery('');
-                          setIsDropdownOpen(false);
-                        }}
-                        className={`px-2.5 py-1.5 rounded text-left text-xs transition-all flex items-center justify-between border-0 cursor-pointer ${isSelected
-                          ? 'btn-active font-semibold shadow-sm'
-                          : 'bg-transparent text-theme-muted hover:bg-white/5 hover:text-theme-primary'
-                          }`}
-                      >
-                        <span>{reciter.name}</span>
-                        {isSelected && <span className="text-[9px] uppercase tracking-widest font-mono opacity-80">Selected</span>}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            )}
+              {/* Scrollable Reciter Options List */}
+              {isDropdownOpen && (
+                <div
+                  className="flex flex-col gap-1 max-h-36 overflow-y-auto border border-[var(--border-color)] rounded-xl p-1.5 bg-[var(--bg-primary)] shadow-lg absolute z-20 left-0 right-0 top-full mt-1 lg:left-full lg:right-auto lg:top-0 lg:mt-0 lg:ml-3 lg:w-72"
+                  id="quran-reciters-list"
+                >
+                  {/* List items selection */}
+                  {((reciterSearchQuery.trim() !== '') ? filteredReciters : reciters).length === 0 ? (
+                    <span className="text-[10px] text-theme-muted p-1 text-center select-none">No reciters found</span>
+                  ) : (
+                    ((reciterSearchQuery.trim() !== '') ? filteredReciters : reciters).map((reciter) => {
+                      const isSelected = selectedReciterId === reciter.id;
+                      return (
+                        <button
+                          key={reciter.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedReciterId(reciter.id);
+                            setReciterSearchQuery('');
+                            setIsDropdownOpen(false);
+                          }}
+                          className={`px-2.5 py-1.5 rounded text-left text-xs transition-all flex items-center justify-between border-0 cursor-pointer ${isSelected
+                            ? 'btn-active font-semibold shadow-sm'
+                            : 'bg-transparent text-theme-muted hover:bg-white/5 hover:text-theme-primary'
+                            }`}
+                        >
+                          <span>{reciter.name}</span>
+                          {isSelected && <span className="text-[9px] uppercase tracking-widest font-mono opacity-80">Selected</span>}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -875,37 +827,123 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
               >
                 <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isMp3DropdownOpen ? 'rotate-180' : ''}`} />
               </button>
-            </div>
 
-            {/* Scrollable Reciter Options List */}
-            {isMp3DropdownOpen && (
+              {/* Scrollable Reciter Options List */}
+              {isMp3DropdownOpen && (
+                <div
+                  className="flex flex-col gap-1 max-h-36 overflow-y-auto border border-[var(--border-color)] rounded-xl p-1.5 bg-[var(--bg-primary)] shadow-lg absolute z-20 left-0 right-0 top-full mt-1 lg:left-full lg:right-auto lg:top-0 lg:mt-0 lg:ml-3 lg:w-72"
+                  id="mp3-reciters-list"
+                >
+                  {/* List items selection */}
+                  {((mp3ReciterSearchQuery.trim() !== '') ? filteredMp3Reciters : mp3Reciters).length === 0 ? (
+                    <span className="text-[10px] text-theme-muted p-1 text-center select-none">No reciters found</span>
+                  ) : (
+                    ((mp3ReciterSearchQuery.trim() !== '') ? filteredMp3Reciters : mp3Reciters).map((reciter) => {
+                      const isSelected = selectedMp3ReciterId === reciter.id;
+                      return (
+                        <button
+                          key={reciter.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedMp3ReciterId(reciter.id);
+                            setMp3ReciterSearchQuery('');
+                            setIsMp3DropdownOpen(false);
+                          }}
+                          className={`px-2.5 py-1.5 rounded text-left text-xs transition-all flex items-center justify-between border-0 cursor-pointer ${isSelected
+                            ? 'btn-active font-semibold shadow-sm'
+                            : 'bg-transparent text-theme-muted hover:bg-white/5 hover:text-theme-primary'
+                            }`}
+                        >
+                          <span>{reciter.name}</span>
+                          {isSelected && <span className="text-[9px] uppercase tracking-widest font-mono opacity-80">Selected</span>}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Select Surah Combobox */}
+        <div ref={surahComboboxRef} className="flex flex-col gap-1.5 relative" id="surah-selector-wrapper">
+          <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider select-none">
+            Select Surah
+          </label>
+
+          {/* Search Input with integrated toggle arrow */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Select Surah to Add..."
+              value={surahSearchQuery}
+              onChange={(e) => {
+                setSurahSearchQuery(e.target.value);
+                if (e.target.value !== "") {
+                  setIsSurahDropdownOpen(true);
+                } else {
+                  setIsSurahDropdownOpen(false);
+                }
+              }}
+              onFocus={() => setIsSurahDropdownOpen(true)}
+              className="w-full pl-3 pr-8 py-2 text-xs rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] text-theme-primary placeholder-theme-primary focus:placeholder-theme-muted focus:outline-none focus:border-[var(--accent-primary)] hover:border-[var(--accent-secondary)] transition-all"
+              id="quran-surah-search"
+            />
+            <button
+              type="button"
+              onClick={() => setIsSurahDropdownOpen(!isSurahDropdownOpen)}
+              className="absolute p-1 bg-transparent border-0 text-theme-muted hover:text-theme-primary cursor-pointer focus:outline-none flex items-center justify-center"
+              style={{ top: '50%', transform: 'translateY(-50%)', right: '10px' }}
+              title="Toggle Surah List"
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isSurahDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Scrollable Surah Options List */}
+            {isSurahDropdownOpen && (
               <div
-                className="flex flex-col gap-1 max-h-36 overflow-y-auto border border-[var(--border-color)] rounded-xl p-1.5 bg-[var(--bg-primary)] shadow-lg absolute z-20 left-0 right-0 top-full mt-1"
-                id="mp3-reciters-list"
+                className="flex flex-col gap-1 max-h-48 overflow-y-auto border border-[var(--border-color)] rounded-xl p-1.5 bg-[var(--bg-primary)] shadow-lg absolute z-20 left-0 right-0 top-full mt-1 lg:left-full lg:right-auto lg:top-0 lg:mt-0 lg:ml-3 lg:w-72"
+                id="quran-surahs-list"
               >
                 {/* List items selection */}
-                {((mp3ReciterSearchQuery.trim() !== '') ? filteredMp3Reciters : mp3Reciters).length === 0 ? (
-                  <span className="text-[10px] text-theme-muted p-1 text-center select-none">No reciters found</span>
+                {((searchSource === 'quran') ? filteredChaptersQuran : filteredChaptersRecitation).length === 0 ? (
+                  <span className="text-[10px] text-theme-muted p-1 text-center select-none">No Surahs found</span>
                 ) : (
-                  ((mp3ReciterSearchQuery.trim() !== '') ? filteredMp3Reciters : mp3Reciters).map((reciter) => {
-                    const isSelected = selectedMp3ReciterId === reciter.id;
+                  ((searchSource === 'quran') ? filteredChaptersQuran : filteredChaptersRecitation).map((ch) => {
                     return (
                       <button
-                        key={reciter.id}
+                        key={ch.id}
                         type="button"
                         onClick={() => {
-                          setSelectedMp3ReciterId(reciter.id);
-                          setMp3ReciterSearchQuery('');
-                          setIsMp3DropdownOpen(false);
-                          setSearchResults([]); // Reset search results on reciter change to avoid mismatch
+                          // Construct the track object dynamically
+                          const track = searchSource === 'quran' ? {
+                            id: `quran-ch-${ch.id}`,
+                            isQuran: true,
+                            chapterId: ch.id,
+                            name: `Surah ${ch.name_simple} (${ch.name_arabic})`,
+                            artist_name: `Verses: ${ch.verses_count} | ${ch.translated_name.name}`,
+                            verses_count: ch.verses_count,
+                            name_simple: ch.name_simple
+                          } : {
+                            id: `recitation-ch-${ch.id}`,
+                            isRecitationOnly: true,
+                            chapterId: ch.id,
+                            name: `Surah ${ch.name_simple} (${ch.name_arabic})`,
+                            artist_name: `Reciter: ${selectedMp3Reciter.name}`,
+                            verses_count: ch.verses_count,
+                            name_simple: ch.name_simple
+                          };
+                          handleAddTrack(track);
+                          setSurahSearchQuery('');
+                          setIsSurahDropdownOpen(false);
                         }}
-                        className={`px-2.5 py-1.5 rounded text-left text-xs transition-all flex items-center justify-between border-0 cursor-pointer ${isSelected
-                          ? 'btn-active font-semibold shadow-sm'
-                          : 'bg-transparent text-theme-muted hover:bg-white/5 hover:text-theme-primary'
-                          }`}
+                        className="px-2.5 py-1.5 rounded text-left text-xs bg-transparent text-theme-muted hover:bg-white/5 hover:text-theme-primary border-0 cursor-pointer transition-all flex items-center justify-between"
                       >
-                        <span>{reciter.name}</span>
-                        {isSelected && <span className="text-[9px] uppercase tracking-widest font-mono opacity-80">Selected</span>}
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-theme-primary truncate">{ch.id}. {ch.name_simple} ({ch.name_arabic})</span>
+                          <span className="text-[9px] text-theme-muted truncate">{ch.translated_name.name} ({ch.verses_count} verses)</span>
+                        </div>
                       </button>
                     );
                   })
@@ -913,78 +951,7 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
               </div>
             )}
           </div>
-        )}
-
-        <form onSubmit={handleGenerate} className="flex gap-2">
-          <div className="search-input-wrapper">
-            <input
-              type="text"
-              required
-              id="song-search-input"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={
-                searchSource === 'quran'
-                  ? "Enter Surah name or number (e.g. Yaseen, Mulk, 1)..."
-                  : "Search Surah name or number for recitation..."
-              }
-              className="search-input"
-            />
-            <Search className="search-icon" />
-          </div>
-
-          <button
-            type="submit"
-            disabled={isGenerating || !title.trim()}
-            id="btn-synthesize-song"
-            className="search-btn"
-          >
-            <AudioLines className="w-4 h-4" />
-            Search
-          </button>
-        </form>
-
-        {/* Search Results List */}
-        {searchResults.length > 0 && (
-          <div className="flex flex-col gap-2 border border-[var(--border-color)] bg-[var(--bg-panel)] rounded-xl p-3 max-h-56 overflow-y-auto animate-none" id="search-results-panel">
-            <span className="text-[10px] font-mono text-theme-muted uppercase tracking-wider mb-1 flex items-center gap-1 select-none">
-              <Search className="w-3 h-3 text-[var(--accent-secondary)]" /> Search Results ({searchResults.length})
-            </span>
-            <div className="flex flex-col divide-y divide-[var(--border-color)]/20">
-              {searchResults.map(track => {
-                const isAdding = addingTrackId === track.id;
-                return (
-                  <div key={track.id} className="flex items-center justify-between py-2 gap-2 text-xs">
-                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                      <button
-                        onClick={() => handleAddTrack(track)}
-                        disabled={!!addingTrackId}
-                        title="Add to Playlist"
-                        className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 disabled:opacity-50 ${isAdding ? 'btn-active shadow-sm' : 'btn-inactive'
-                          }`}
-                      >
-                        {isAdding ? (
-                          <div className="w-3.5 h-3.5 border-2 border-t-transparent border-white rounded-full animate-spin" />
-                        ) : (
-                          <Plus className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-bold text-theme-primary truncate">{track.name}</span>
-                        <span className="text-[10px] text-theme-muted truncate">{track.artist_name}</span>
-                      </div>
-                    </div>
-                    {track.duration && (
-                      <span className="text-[10px] font-mono text-theme-muted flex-shrink-0">
-                        {Math.floor(track.duration / 60)}:{String(track.duration % 60).padStart(2, '0')}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        </div>
 
         {/* Track Loading / Progress Panel */}
         {loadingStatus !== 'idle' && (

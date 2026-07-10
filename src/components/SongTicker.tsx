@@ -58,9 +58,6 @@ export const SongTicker: React.FC<SongTickerProps> = ({ song, isPlaying }) => {
             <span className="text-[var(--accent-primary)] font-extrabold uppercase">► NOW PLAYING //</span>
             <span className="text-theme-primary">{song.title}</span>
             <span className="text-theme-muted font-normal text-sm">by {song.artist}</span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono border border-[var(--accent-secondary)] text-[var(--accent-secondary)] bg-[var(--accent-secondary)]/10">
-              {song.genre.toUpperCase()}
-            </span>
           </div>
 
           {shouldScroll && isPlaying && (
@@ -68,23 +65,8 @@ export const SongTicker: React.FC<SongTickerProps> = ({ song, isPlaying }) => {
               <span className="text-[var(--accent-primary)] font-extrabold uppercase">► NOW PLAYING //</span>
               <span className="text-theme-primary">{song.title}</span>
               <span className="text-theme-muted font-normal text-sm">by {song.artist}</span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono border border-[var(--accent-secondary)] text-[var(--accent-secondary)] bg-[var(--accent-secondary)]/10">
-                {song.genre.toUpperCase()}
-              </span>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Auxiliary metadata bar */}
-      <div className="flex justify-between items-center px-2 text-xs font-mono text-theme-muted">
-        <span className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-secondary)] animate-ping" />
-          SYNTH: active
-        </span>
-        <div className="flex gap-4">
-          <span>KEY: <strong className="text-theme-primary">{song.key}</strong></span>
-          <span>TEMPO: <strong className="text-theme-primary">{song.tempo} BPM</strong></span>
         </div>
       </div>
 

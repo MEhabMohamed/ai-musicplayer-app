@@ -741,9 +741,10 @@ body.theme-minimalist .btn-active {
   font-weight: 400;
 }
 
-/* Quran Reciter dropdown list z-index and opacity fix */
+/* Quran Reciter & Surah dropdown list z-index and opacity fix */
 #quran-reciters-list,
-#mp3-reciters-list {
+#mp3-reciters-list,
+#quran-surahs-list {
   background-color: var(--bg-primary) !important;
   opacity: 1 !important;
   z-index: 50 !important;
@@ -752,8 +753,10 @@ body.theme-minimalist .btn-active {
 
 body.theme-cozy #quran-reciters-list,
 body.theme-cozy #mp3-reciters-list,
+body.theme-cozy #quran-surahs-list,
 body.theme-minimalist #quran-reciters-list,
-body.theme-minimalist #mp3-reciters-list {
+body.theme-minimalist #mp3-reciters-list,
+body.theme-minimalist #quran-surahs-list {
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
 }
 

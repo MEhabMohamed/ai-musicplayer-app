@@ -17,7 +17,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
   onSelectSong,
   onRemoveSong
 }) => {
-  
+
   // Format seconds to MM:SS
   const formatTime = (secs: number) => {
     const mins = Math.floor(secs / 60);
@@ -35,7 +35,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
       </div>
 
       {/* Songs List */}
-      <div 
+      <div
         className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1"
         id="playlist-tracks-container"
       >
@@ -51,11 +51,10 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
               <div
                 key={song.id}
                 id={`playlist-item-${song.id}`}
-                className={`flex items-center justify-between p-3.5 transition-all duration-300 select-none group rounded-xl border ${
-                  isActive 
-                    ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-secondary)]/50 shadow-[0_0_12px_rgba(var(--accent-secondary),0.12)]' 
+                className={`flex items-center justify-between p-3.5 transition-all duration-300 select-none group rounded-xl border ${isActive
+                    ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-secondary)]/50 shadow-[0_0_12px_rgba(var(--accent-secondary),0.12)]'
                     : 'bg-black/20 hover:bg-white/5 border-[var(--border-color)]/30 hover:border-[var(--border-color)]/60'
-                }`}
+                  }`}
               >
                 {/* Track Details Button */}
                 <button
@@ -97,14 +96,6 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
                     </p>
                   </div>
 
-                  {/* Genre Badge */}
-                  <span className={`hidden sm:inline-block px-1.5 py-0.5 rounded text-[9px] font-mono border transition-all ${
-                    isActive 
-                      ? 'border-[var(--accent-secondary)]/40 bg-[var(--accent-secondary)]/10 text-theme-primary' 
-                      : 'border-[var(--border-color)] bg-[var(--bg-panel)] text-theme-muted'
-                  }`}>
-                    {song.genre}
-                  </span>
                 </button>
 
                 {/* Duration and remove actions */}
@@ -112,7 +103,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
                   <span className="text-xs font-mono transition-all text-theme-muted">
                     {formatTime(song.duration)}
                   </span>
-                  
+
                   <button
                     onClick={() => onRemoveSong(song.id)}
                     id={`btn-delete-${song.id}`}
