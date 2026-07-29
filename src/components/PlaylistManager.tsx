@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Song } from '../types/music';
-import { Play, Trash2, ListMusic } from 'lucide-react';
+import { Play, X, ListMusic } from 'lucide-react';
 
 interface PlaylistManagerProps {
   songs: Song[];
@@ -107,10 +107,10 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
                   <button
                     onClick={() => onRemoveSong(song.id)}
                     id={`btn-delete-${song.id}`}
-                    title="Remove Song"
+                    title="Remove Recitation"
                     className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded border transition-all duration-300 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
