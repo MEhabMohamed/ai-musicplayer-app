@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Song, LyricsLine } from '../types/music';
 import { compileSearchedSong } from '../services/LyricsDatabase';
-import { Sparkles, Terminal, AudioLines, Upload, BookOpen, ChevronDown, WifiOff, Clock } from 'lucide-react';
+import { Sparkles, Terminal, AudioLines, Upload, BookOpen, ChevronDown, WifiOff, Clock, Book } from 'lucide-react';
+import { QuranPageViewer } from './QuranPageViewer';
 
 interface MusicGeneratorProps {
   onSongGenerated: (song: Song) => void;
   onSourceChange?: (source: SearchSource) => void;
 }
 
-type SearchSource = 'quran' | 'recitation';
+export type SearchSource = 'quran' | 'recitation' | 'pages';
 
 const FALLBACK_CHAPTERS = [
   { id: 1, name_simple: "Al-Fatihah", name_arabic: "الفاتحة", verses_count: 7, translated_name: { name: "The Opening" } },
@@ -714,16 +715,32 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
           onClick={() => selectSource('recitation')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${searchSource === 'recitation' ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
+          id="source-btn-recitation"
         >
           <AudioLines className="w-3.5 h-3.5 mr-1" />
           Recitation only
         </button>
+        <button
+          type="button"
+          onClick={() => selectSource('pages')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${searchSource === 'pages' ? 'btn-active shadow-sm' : 'btn-inactive'
+            }`}
+          id="source-btn-pages"
+        >
+          <Book className="w-3.5 h-3.5 mr-1" />
+          Quran pages
+        </button>
       </div>
 
-      {/* Input query form */}
-      <div className="flex flex-col gap-3">
-        {searchSource === 'quran' && (
-          <div ref={reciterComboboxRef} className="flex flex-col gap-1.5 relative" id="reciter-selector-wrapper">
+      {/* Main Mode Rendering: Pages Reader vs Audio Stream Form */}
+      {searchSource === 'pages' ? (
+        <div className="flex flex-col gap-3" id="quran-pages-section-wrapper">
+          <QuranPageViewer />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {searchSource === 'quran' && (
+          <div ref={reciterComboboxRef} className="flex flex-col gap-1.5 relative z-30" id="reciter-selector-wrapper">
             <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider select-none">
               Select Reciter
             </label>
@@ -759,7 +776,7 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
               {/* Scrollable Reciter Options List */}
               {isDropdownOpen && (
                 <div
-                  className="flex flex-col gap-1 max-h-36 overflow-y-auto border border-[var(--border-color)] rounded-xl p-1.5 bg-[var(--bg-primary)] shadow-lg absolute z-20 left-0 right-0 top-full mt-1 lg:left-full lg:right-auto lg:top-0 lg:mt-0 lg:ml-3 lg:w-72"
+                  className="flex flex-col gap-1 max-h-48 overflow-y-auto border border-[var(--border-color)] rounded-xl p-1.5 bg-[var(--bg-primary)] shadow-2xl absolute z-50 left-0 right-0 top-full mt-1"
                   id="quran-reciters-list"
                 >
                   {/* List items selection */}
@@ -795,7 +812,7 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
         )}
 
         {searchSource === 'recitation' && (
-          <div ref={mp3ReciterComboboxRef} className="flex flex-col gap-1.5 relative" id="mp3-reciter-selector-wrapper">
+          <div ref={mp3ReciterComboboxRef} className="flex flex-col gap-1.5 relative z-30" id="mp3-reciter-selector-wrapper">
             <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider select-none">
               Select MP3 Reciter
             </label>
@@ -831,7 +848,7 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
               {/* Scrollable Reciter Options List */}
               {isMp3DropdownOpen && (
                 <div
-                  className="flex flex-col gap-1 max-h-36 overflow-y-auto border border-[var(--border-color)] rounded-xl p-1.5 bg-[var(--bg-primary)] shadow-lg absolute z-20 left-0 right-0 top-full mt-1 lg:left-full lg:right-auto lg:top-0 lg:mt-0 lg:ml-3 lg:w-72"
+                  className="flex flex-col gap-1 max-h-48 overflow-y-auto border border-[var(--border-color)] rounded-xl p-1.5 bg-[var(--bg-primary)] shadow-2xl absolute z-50 left-0 right-0 top-full mt-1"
                   id="mp3-reciters-list"
                 >
                   {/* List items selection */}
@@ -867,7 +884,7 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
         )}
 
         {/* Select Surah Combobox */}
-        <div ref={surahComboboxRef} className="flex flex-col gap-1.5 relative" id="surah-selector-wrapper">
+        <div ref={surahComboboxRef} className="flex flex-col gap-1.5 relative z-30" id="surah-selector-wrapper">
           <label className="text-[10px] font-mono text-theme-muted uppercase tracking-wider select-none">
             Select Surah
           </label>
@@ -903,7 +920,7 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
             {/* Scrollable Surah Options List */}
             {isSurahDropdownOpen && (
               <div
-                className="flex flex-col gap-1 max-h-48 overflow-y-auto border border-[var(--border-color)] rounded-xl p-1.5 bg-[var(--bg-primary)] shadow-lg absolute z-20 left-0 right-0 top-full mt-1 lg:left-full lg:right-auto lg:top-0 lg:mt-0 lg:ml-3 lg:w-72"
+                className="flex flex-col gap-1 max-h-56 overflow-y-auto border border-[var(--border-color)] rounded-xl p-1.5 bg-[var(--bg-primary)] shadow-2xl absolute z-50 left-0 right-0 top-full mt-1"
                 id="quran-surahs-list"
               >
                 {/* List items selection */}
@@ -1027,6 +1044,7 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({ onSongGenerated,
           />
         </div>
       </div>
+      )}
 
       {/* Terminal Log Console */}
       {isGenerating || logs.length > 0 ? (

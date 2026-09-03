@@ -744,19 +744,77 @@ body.theme-minimalist .btn-active {
 /* Quran Reciter & Surah dropdown list z-index and opacity fix */
 #quran-reciters-list,
 #mp3-reciters-list,
-#quran-surahs-list {
+#quran-surahs-list,
+#quran-quick-surahs-list {
   background-color: var(--bg-primary) !important;
   opacity: 1 !important;
-  z-index: 50 !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+  z-index: 1000 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75), 0 0 0 1px var(--border-color) !important;
 }
 
 body.theme-cozy #quran-reciters-list,
 body.theme-cozy #mp3-reciters-list,
 body.theme-cozy #quran-surahs-list,
+body.theme-cozy #quran-quick-surahs-list,
 body.theme-minimalist #quran-reciters-list,
 body.theme-minimalist #mp3-reciters-list,
-body.theme-minimalist #quran-surahs-list {
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+body.theme-minimalist #quran-surahs-list,
+body.theme-minimalist #quran-quick-surahs-list {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 0 1px var(--border-color) !important;
+}
+
+/* ==========================================================================
+   SECTION 8: QURAN PAGE READER STYLES
+   ========================================================================== */
+
+.font-quran-arabic {
+  font-family: 'Amiri Quran', 'Amiri', 'Traditional Arabic', serif;
+  line-height: 2.2;
+}
+
+.font-arabic-title {
+  font-family: 'Amiri', serif;
+}
+
+.quran-mushaf-paper {
+  background: var(--bg-screen);
+  border: 1px solid var(--border-color);
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+
+.quran-surah-frame {
+  background: linear-gradient(135deg, rgba(var(--accent-primary), 0.12), rgba(var(--accent-secondary), 0.12));
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  position: relative;
+}
+
+.quran-ayah-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Amiri', 'JetBrains Mono', serif;
+  font-size: 0.85em;
+  color: var(--accent-secondary);
+  margin: 0 0.35rem;
+  user-select: none;
+  vertical-align: middle;
+}
+
+/* Custom scrollbar for Quran text reader */
+.quran-reader-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.quran-reader-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+.quran-reader-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+.quran-reader-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
 }
 

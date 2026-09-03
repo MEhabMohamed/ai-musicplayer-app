@@ -258,7 +258,7 @@ export default function App() {
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-hidden min-h-0">
 
         {/* Left Hand: Creation & Inventory controls (5 cols) */}
-        <section className="lg:col-span-5 flex flex-col gap-4 overflow-y-auto pr-1">
+        <section className="lg:col-span-5 flex flex-col gap-4 overflow-y-auto pr-1 relative z-20">
           <div className="glass-panel p-4 flex-1 flex flex-col min-h-[250px]">
             <PlaylistManager
               songs={songs}
@@ -278,7 +278,7 @@ export default function App() {
         </section>
 
         {/* Right Hand: Deck Player & Visuals console (7 cols) */}
-        <section className="lg:col-span-7 flex flex-col gap-4 justify-between overflow-y-auto pr-1">
+        <section className="lg:col-span-7 flex flex-col gap-4 justify-between overflow-y-auto pr-1 relative z-10">
 
           {/* Ticker HUD */}
           <div className="glass-panel p-4">
