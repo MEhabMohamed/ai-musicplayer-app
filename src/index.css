@@ -30,7 +30,7 @@ body.theme-mushaf {
   --accent-secondary: #10b981; /* Quranic Emerald green */
   --accent-tertiary: #f59e0b; /* Amber */
   --text-primary: #fbf8ee; /* Warm ivory */
-  --text-muted: #9bb7aa;
+  --text-muted: #adc8bc;
   --text-glow: 0 0 12px rgba(212, 175, 55, 0.35);
   --glow-btn: 0 0 15px rgba(212, 175, 55, 0.3);
   --font-mono: 'JetBrains Mono', monospace;
@@ -54,7 +54,7 @@ body.theme-kiswa {
   --accent-secondary: #fef08a; /* Bright Gold */
   --accent-tertiary: #ca8a04; /* Deep Bronze */
   --text-primary: #fafafa;
-  --text-muted: #a1a1aa;
+  --text-muted: #b8b8c2;
   --text-glow: 0 0 10px rgba(229, 193, 88, 0.4);
   --glow-btn: 0 0 16px rgba(229, 193, 88, 0.35);
   --font-mono: 'JetBrains Mono', monospace;
@@ -78,7 +78,7 @@ body.theme-parchment {
   --accent-secondary: #c88937; /* Illuminated gold */
   --accent-tertiary: #6e411f;
   --text-primary: #2d1c0c; /* Deep walnut ink */
-  --text-muted: #6b4c30;
+  --text-muted: #53361e;
   --text-glow: none;
   --glow-btn: 0 4px 10px rgba(158, 100, 46, 0.15);
   --font-mono: 'JetBrains Mono', monospace;
@@ -101,7 +101,7 @@ body.theme-noor {
   --accent-secondary: #0d9488; /* Soft teal */
   --accent-tertiary: #d97706; /* Golden accent */
   --text-primary: #0f172a;
-  --text-muted: #475569;
+  --text-muted: #334155;
   --text-glow: none;
   --glow-btn: 0 4px 12px rgba(2, 132, 199, 0.15);
   --font-mono: 'JetBrains Mono', monospace;
@@ -124,13 +124,41 @@ body.theme-fajr {
   --accent-secondary: #818cf8; /* Twilight indigo */
   --accent-tertiary: #3b82f6; /* Sapphire */
   --text-primary: #f0f9ff;
-  --text-muted: #94a3b8;
+  --text-muted: #a5b4fc;
   --text-glow: 0 0 10px rgba(56, 189, 248, 0.35);
   --glow-btn: 0 0 14px rgba(56, 189, 248, 0.3);
   --font-mono: 'JetBrains Mono', monospace;
   --panel-blur: blur(16px);
   --grid-overlay: linear-gradient(rgba(56, 189, 248, 0.02) 1px, transparent 1px),
                   linear-gradient(90deg, rgba(56, 189, 248, 0.02) 1px, transparent 1px);
+}
+
+/* Continuous Recitation Stream Banner Subtitle - High Contrast across all Themes */
+.stream-banner-desc {
+  color: var(--text-primary);
+  opacity: 0.95;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+body.theme-mushaf .stream-banner-desc {
+  color: #fdfbf7;
+}
+
+body.theme-kiswa .stream-banner-desc {
+  color: #ffffff;
+}
+
+body.theme-parchment .stream-banner-desc {
+  color: #1f1205;
+}
+
+body.theme-noor .stream-banner-desc {
+  color: #0b1324;
+}
+
+body.theme-fajr .stream-banner-desc {
+  color: #f8fafc;
 }
 
 

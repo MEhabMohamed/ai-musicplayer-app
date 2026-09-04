@@ -139,19 +139,20 @@ export const ContinuousStream: React.FC<ContinuousStreamProps> = ({
   return (
     <div className="flex flex-col gap-4 w-full" id="continuous-stream-panel">
       {/* Description Header Banner */}
-      <div className="p-3.5 rounded-xl bg-gradient-to-r from-[var(--accent-primary)]/15 via-[var(--accent-secondary)]/10 to-[var(--accent-tertiary)]/15 border border-[var(--border-color)] select-none">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] mt-0.5">
+      <div className="p-3.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] relative overflow-hidden shadow-sm select-none">
+        <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-primary)]/12 via-[var(--accent-secondary)]/8 to-[var(--accent-tertiary)]/10 pointer-events-none" />
+        <div className="flex items-start gap-3 relative z-10">
+          <div className="p-2 rounded-lg bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] mt-0.5 shrink-0">
             <Radio className="w-5 h-5 animate-pulse" />
           </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-bold tracking-wide text-theme-primary flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold tracking-wide text-theme-primary flex items-center gap-2 flex-wrap">
               <span>{t.streamTitle}</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--accent-secondary)]/20 text-[var(--accent-secondary)] font-mono uppercase tracking-wider">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--accent-secondary)]/20 text-[var(--accent-secondary)] font-mono uppercase tracking-wider font-semibold">
                 114 ➔ 1 Loop
               </span>
             </h3>
-            <p className="text-xs text-theme-muted mt-1 leading-relaxed">
+            <p className="text-xs stream-banner-desc mt-1.5 leading-relaxed font-medium">
               {t.streamSubtitle}
             </p>
           </div>
@@ -267,33 +268,33 @@ export const ContinuousStream: React.FC<ContinuousStreamProps> = ({
           <label className="text-[11px] font-mono text-theme-muted uppercase tracking-wider select-none">
             {t.streamReciterMode}
           </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setSelectedReciterMode('single')}
-              className={`p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all border cursor-pointer ${
-                selectedReciterMode === 'single'
-                  ? 'bg-[var(--accent-primary)]/20 border-[var(--accent-primary)] text-theme-primary shadow-sm'
-                  : 'bg-black/20 border-[var(--border-color)] text-theme-muted hover:border-white/30'
-              }`}
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>{t.streamSingleReciter}</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedReciterMode('single')}
+                className={`flex-1 py-2 px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  selectedReciterMode === 'single'
+                    ? 'btn-active shadow-sm'
+                    : 'bg-[var(--bg-input)] border-[var(--border-color)] text-theme-muted hover:border-[var(--accent-secondary)]'
+                }`}
+              >
+                <User className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+                <span>{t.streamSingleReciter}</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setSelectedReciterMode('shuffle')}
-              className={`p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all border cursor-pointer ${
-                selectedReciterMode === 'shuffle'
-                  ? 'bg-[var(--accent-secondary)]/20 border-[var(--accent-secondary)] text-theme-primary shadow-sm'
-                  : 'bg-black/20 border-[var(--border-color)] text-theme-muted hover:border-white/30'
-              }`}
-            >
-              <Shuffle className="w-3.5 h-3.5" />
-              <span>{t.streamShuffleReciter}</span>
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => setSelectedReciterMode('shuffle')}
+                className={`flex-1 py-2 px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  selectedReciterMode === 'shuffle'
+                    ? 'btn-active shadow-sm'
+                    : 'bg-[var(--bg-input)] border-[var(--border-color)] text-theme-muted hover:border-[var(--accent-secondary)]'
+                }`}
+              >
+                <Shuffle className="w-3.5 h-3.5 text-[var(--accent-secondary)]" />
+                <span>{t.streamShuffleReciter}</span>
+              </button>
+            </div>
         </div>
 
         {/* Reciter Selector Combobox */}
