@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import type { Song } from '../types/music';
+import { useLanguage } from '../services/i18n';
 
 interface SongTickerProps {
   song: Song | null;
@@ -7,6 +8,7 @@ interface SongTickerProps {
 }
 
 export const SongTicker: React.FC<SongTickerProps> = ({ song, isPlaying }) => {
+  const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const textRef = useRef<HTMLDivElement | null>(null);
   const [shouldScroll, setShouldScroll] = useState(false);
@@ -25,7 +27,7 @@ export const SongTicker: React.FC<SongTickerProps> = ({ song, isPlaying }) => {
     return (
       <div className="w-full flex items-center justify-center h-16 border border-[var(--border-color)] rounded-xl bg-black/20 px-4">
         <span className="text-sm font-medium text-theme-muted tracking-wider uppercase animate-pulse">
-          No Audio Selected. Awaiting Input...
+          {t.noAudioSelected}
         </span>
       </div>
     );
@@ -55,16 +57,16 @@ export const SongTicker: React.FC<SongTickerProps> = ({ song, isPlaying }) => {
         >
           {/* Duplicate text if scrolling to create seamless loop */}
           <div className="flex items-center gap-2">
-            <span className="text-[var(--accent-primary)] font-extrabold uppercase">► NOW PLAYING //</span>
+            <span className="text-[var(--accent-primary)] font-extrabold uppercase">{t.nowPlayingPrefix}</span>
             <span className="text-theme-primary">{song.title}</span>
-            <span className="text-theme-muted font-normal text-sm">by {song.artist}</span>
+            <span className="text-theme-muted font-normal text-sm">{t.byArtistPrefix} {song.artist}</span>
           </div>
 
           {shouldScroll && isPlaying && (
             <div className="flex items-center gap-2">
-              <span className="text-[var(--accent-primary)] font-extrabold uppercase">► NOW PLAYING //</span>
+              <span className="text-[var(--accent-primary)] font-extrabold uppercase">{t.nowPlayingPrefix}</span>
               <span className="text-theme-primary">{song.title}</span>
-              <span className="text-theme-muted font-normal text-sm">by {song.artist}</span>
+              <span className="text-theme-muted font-normal text-sm">{t.byArtistPrefix} {song.artist}</span>
             </div>
           )}
         </div>

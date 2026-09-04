@@ -3,6 +3,7 @@ import {
   Play, Pause, Square, SkipForward, SkipBack, 
   Volume2, VolumeX, Shuffle, Repeat
 } from 'lucide-react';
+import { useLanguage } from '../services/i18n';
 
 interface MediaControlsProps {
   isPlaying: boolean;
@@ -43,6 +44,8 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
   onShuffleToggle,
   onLoopToggle
 }) => {
+  const { t } = useLanguage();
+
   // Format seconds to MM:SS
   const formatTime = (secs: number) => {
     const mins = Math.floor(secs / 60);
@@ -87,7 +90,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
           <button
             onClick={onShuffleToggle}
             id="btn-shuffle"
-            title="Toggle Shuffle"
+            title={t.btnShuffle}
             className={`p-2 rounded-lg transition-all ${
               shuffle ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
@@ -98,7 +101,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
           <button
             onClick={onLoopToggle}
             id="btn-loop"
-            title="Toggle Repeat"
+            title={t.btnLoop}
             className={`p-2 rounded-lg transition-all ${
               loop ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
@@ -112,7 +115,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
           <button
             onClick={onPrev}
             id="btn-prev"
-            title="Previous Track"
+            title={t.btnPrev}
             className="p-2.5 rounded-xl transition-all btn-inactive"
           >
             <SkipBack className="w-4 h-4 fill-current" />
@@ -121,7 +124,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
           <button
             onClick={onPlayPause}
             id="btn-play-pause"
-            title={isPlaying ? 'Pause' : 'Play'}
+            title={isPlaying ? t.btnPause : t.btnPlay}
             className="p-4 rounded-full bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-tertiary)] hover:scale-105 active:scale-95 text-white shadow-md glow-hover transition-all duration-300"
           >
             {isPlaying ? (
@@ -134,7 +137,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
           <button
             onClick={onStop}
             id="btn-stop"
-            title="Stop Playback"
+            title={t.btnStop}
             className="p-2.5 rounded-xl transition-all btn-inactive"
           >
             <Square className="w-4 h-4 fill-current" />
@@ -143,7 +146,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
           <button
             onClick={onNext}
             id="btn-next"
-            title="Next Track"
+            title={t.btnNext}
             className="p-2.5 rounded-xl transition-all btn-inactive"
           >
             <SkipForward className="w-4 h-4 fill-current" />
@@ -155,7 +158,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
           <button
             onClick={onMuteToggle}
             id="btn-mute-toggle"
-            title={isMuted ? 'Unmute' : 'Mute'}
+            title={isMuted ? t.btnUnmute : t.btnMute}
             className={`p-2 transition-all rounded-lg ${
               isMuted ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
@@ -176,7 +179,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
             onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
             className="w-20 h-1.5 rounded-full appearance-none bg-[var(--bg-panel)] accent-[var(--accent-primary)] cursor-pointer w-24 sm:w-20"
             id="volume-slider-hud"
-            title="Volume Control"
+            title={t.volumeLabel}
           />
         </div>
       </div>

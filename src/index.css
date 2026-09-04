@@ -15,121 +15,122 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 1. Cyberpunk Theme */
-body.theme-cyberpunk {
-  --bg-primary: #05050f;
-  --bg-gradient: linear-gradient(135deg, #05050f 0%, #0d0c26 100%);
-  --bg-card: rgba(13, 12, 38, 0.65);
-  --bg-panel: rgba(0, 0, 0, 0.4);
-  --bg-input: rgba(0, 0, 0, 0.5);
-  --bg-screen: rgba(0, 0, 0, 0.65);
-  --text-screen-muted: #8b9bb4;
-  --border-color: rgba(0, 240, 255, 0.2);
-  --border-focus: rgba(255, 0, 127, 0.6);
-  --accent-primary: #ff007f;
-  --accent-secondary: #00f0ff;
-  --accent-tertiary: #9d00ff;
-  --text-primary: #ffffff;
-  --text-muted: #8b9bb4;
-  --text-glow: 0 0 10px rgba(0, 240, 255, 0.5);
-  --glow-btn: 0 0 15px rgba(255, 0, 127, 0.4);
+/* 1. Emerald Mushaf Theme (المصحف الشريف - أخضر وذهبي) */
+body.theme-mushaf {
+  --bg-primary: #071912;
+  --bg-gradient: linear-gradient(145deg, #061711 0%, #0c2b20 50%, #061711 100%);
+  --bg-card: rgba(12, 43, 32, 0.7);
+  --bg-panel: rgba(5, 20, 14, 0.55);
+  --bg-input: rgba(4, 16, 11, 0.7);
+  --bg-screen: rgba(5, 22, 16, 0.8);
+  --text-screen-muted: #8fbca7;
+  --border-color: rgba(212, 175, 55, 0.25);
+  --border-focus: rgba(212, 175, 55, 0.7);
+  --accent-primary: #d4af37; /* Noble gold */
+  --accent-secondary: #10b981; /* Quranic Emerald green */
+  --accent-tertiary: #f59e0b; /* Amber */
+  --text-primary: #fbf8ee; /* Warm ivory */
+  --text-muted: #9bb7aa;
+  --text-glow: 0 0 12px rgba(212, 175, 55, 0.35);
+  --glow-btn: 0 0 15px rgba(212, 175, 55, 0.3);
   --font-mono: 'JetBrains Mono', monospace;
   --panel-blur: blur(16px);
-  --grid-overlay: linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+  --grid-overlay: linear-gradient(rgba(212, 175, 55, 0.02) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(212, 175, 55, 0.02) 1px, transparent 1px);
 }
 
-/* 2. Retro Synthwave Theme */
-body.theme-retro {
-  --bg-primary: #150026;
-  --bg-gradient: linear-gradient(180deg, #150026 0%, #30004a 50%, #4a0047 100%);
-  --bg-card: rgba(48, 0, 74, 0.5);
-  --bg-panel: rgba(0, 0, 0, 0.3);
-  --bg-input: rgba(0, 0, 0, 0.45);
-  --bg-screen: rgba(0, 0, 0, 0.55);
-  --text-screen-muted: #a392b5;
-  --border-color: rgba(255, 126, 0, 0.25);
-  --border-focus: rgba(255, 42, 116, 0.7);
-  --accent-primary: #ff2a74;
-  --accent-secondary: #ff7e00;
-  --accent-tertiary: #8a00e6;
-  --text-primary: #ffe6f0;
-  --text-muted: #a392b5;
-  --text-glow: 0 0 8px rgba(255, 42, 116, 0.4);
-  --glow-btn: 0 0 12px rgba(255, 126, 0, 0.4);
+/* 2. Kaaba Kiswa Theme (كسوة الكعبة - أسود ملكي وذهب) */
+body.theme-kiswa {
+  --bg-primary: #09090b;
+  --bg-gradient: linear-gradient(160deg, #09090b 0%, #18181f 50%, #09090b 100%);
+  --bg-card: rgba(24, 24, 30, 0.75);
+  --bg-panel: rgba(0, 0, 0, 0.55);
+  --bg-input: rgba(15, 15, 18, 0.8);
+  --bg-screen: rgba(10, 10, 12, 0.9);
+  --text-screen-muted: #a3a3a3;
+  --border-color: rgba(229, 193, 88, 0.3);
+  --border-focus: rgba(245, 212, 115, 0.8);
+  --accent-primary: #e5c158; /* Pure Kaaba Gold */
+  --accent-secondary: #fef08a; /* Bright Gold */
+  --accent-tertiary: #ca8a04; /* Deep Bronze */
+  --text-primary: #fafafa;
+  --text-muted: #a1a1aa;
+  --text-glow: 0 0 10px rgba(229, 193, 88, 0.4);
+  --glow-btn: 0 0 16px rgba(229, 193, 88, 0.35);
   --font-mono: 'JetBrains Mono', monospace;
-  --panel-blur: blur(12px);
-  --grid-overlay: linear-gradient(rgba(255, 42, 116, 0.05) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(255, 42, 116, 0.05) 1px, transparent 1px);
+  --panel-blur: blur(16px);
+  --grid-overlay: linear-gradient(rgba(229, 193, 88, 0.02) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(229, 193, 88, 0.02) 1px, transparent 1px);
 }
 
-/* 3. Futuristic Dark (Glassmorphism) */
-body.theme-futuristic {
-  --bg-primary: #0a0c10;
-  --bg-gradient: radial-gradient(circle at top right, #111827, #030712);
-  --bg-card: rgba(17, 24, 39, 0.45);
-  --bg-panel: rgba(255, 255, 255, 0.03);
-  --bg-input: rgba(0, 0, 0, 0.25);
-  --bg-screen: rgba(0, 0, 0, 0.45);
-  --text-screen-muted: #9ca3af;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-focus: rgba(59, 130, 246, 0.6);
-  --accent-primary: #3b82f6;
-  --accent-secondary: #10b981;
-  --accent-tertiary: #6366f1;
-  --text-primary: #f3f4f6;
-  --text-muted: #9ca3af;
+/* 3. Ancient Manuscript / Parchment (مخطوطة عتيقة - بيج دافئ) */
+body.theme-parchment {
+  --bg-primary: #f7f1e5;
+  --bg-gradient: linear-gradient(135deg, #faf5ec 0%, #ede3cf 100%);
+  --bg-card: rgba(255, 252, 246, 0.85);
+  --bg-panel: rgba(61, 40, 23, 0.06);
+  --bg-input: rgba(255, 255, 255, 0.92);
+  --bg-screen: rgba(250, 244, 232, 0.95);
+  --text-screen-muted: #8c6239;
+  --border-color: rgba(140, 98, 57, 0.24);
+  --border-focus: rgba(180, 110, 50, 0.65);
+  --accent-primary: #9e642e; /* Warm antique leather */
+  --accent-secondary: #c88937; /* Illuminated gold */
+  --accent-tertiary: #6e411f;
+  --text-primary: #2d1c0c; /* Deep walnut ink */
+  --text-muted: #6b4c30;
   --text-glow: none;
-  --glow-btn: 0 0 10px rgba(59, 130, 246, 0.3);
+  --glow-btn: 0 4px 10px rgba(158, 100, 46, 0.15);
   --font-mono: 'JetBrains Mono', monospace;
-  --panel-blur: blur(20px);
+  --panel-blur: blur(10px);
   --grid-overlay: none;
 }
 
-/* 4. Cozy Firelight Theme */
-body.theme-cozy {
-  --bg-primary: #faf6f0;
-  --bg-gradient: linear-gradient(135deg, #fdfbf7 0%, #eae3d2 100%);
-  --bg-card: rgba(255, 255, 255, 0.7);
-  --bg-panel: rgba(0, 0, 0, 0.04);
-  --bg-input: rgba(255, 255, 255, 0.85);
-  --bg-screen: rgba(253, 251, 247, 0.95);
-  --text-screen-muted: #b45309;
-  --border-color: rgba(180, 83, 9, 0.15);
-  --border-focus: rgba(217, 119, 6, 0.5);
-  --accent-primary: #d97706;
-  --accent-secondary: #b45309;
-  --accent-tertiary: #854d0e;
-  --text-primary: #451a03;
-  --text-muted: #78350f;
-  --text-glow: none;
-  --glow-btn: 0 4px 6px -1px rgba(217, 119, 6, 0.15);
-  --font-mono: 'JetBrains Mono', monospace;
-  --panel-blur: blur(8px);
-  --grid-overlay: none;
-}
-
-/* 5. Clean Minimalist Theme */
-body.theme-minimalist {
-  --bg-primary: #ffffff;
-  --bg-gradient: linear-gradient(135deg, #ffffff 0%, #f4f4f5 100%);
-  --bg-card: rgba(244, 244, 245, 0.6);
-  --bg-panel: rgba(24, 24, 27, 0.04);
+/* 4. Noor / Divine Light (نور الهدى - أبيض وسماوي) */
+body.theme-noor {
+  --bg-primary: #f8fafc;
+  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-panel: rgba(15, 23, 42, 0.04);
   --bg-input: rgba(255, 255, 255, 0.95);
   --bg-screen: rgba(255, 255, 255, 0.95);
-  --text-screen-muted: #71717a;
-  --border-color: rgba(24, 24, 27, 0.08);
-  --border-focus: rgba(24, 24, 27, 0.4);
-  --accent-primary: #18181b;
-  --accent-secondary: #71717a;
-  --accent-tertiary: #a1a1aa;
-  --text-primary: #18181b;
-  --text-muted: #52525b;
+  --text-screen-muted: #0284c7;
+  --border-color: rgba(2, 132, 199, 0.22);
+  --border-focus: rgba(2, 132, 199, 0.65);
+  --accent-primary: #0284c7; /* Celestial azure */
+  --accent-secondary: #0d9488; /* Soft teal */
+  --accent-tertiary: #d97706; /* Golden accent */
+  --text-primary: #0f172a;
+  --text-muted: #475569;
   --text-glow: none;
-  --glow-btn: none;
+  --glow-btn: 0 4px 12px rgba(2, 132, 199, 0.15);
   --font-mono: 'JetBrains Mono', monospace;
-  --panel-blur: blur(12px);
+  --panel-blur: blur(14px);
   --grid-overlay: none;
+}
+
+/* 5. Night Prayer / Fajr (تهجد وفجر - كحلي وقمر) */
+body.theme-fajr {
+  --bg-primary: #060b19;
+  --bg-gradient: linear-gradient(160deg, #050a17 0%, #0d1933 60%, #070d1e 100%);
+  --bg-card: rgba(13, 25, 51, 0.7);
+  --bg-panel: rgba(4, 9, 23, 0.55);
+  --bg-input: rgba(5, 12, 28, 0.75);
+  --bg-screen: rgba(6, 15, 36, 0.85);
+  --text-screen-muted: #94a3b8;
+  --border-color: rgba(56, 189, 248, 0.25);
+  --border-focus: rgba(125, 211, 252, 0.75);
+  --accent-primary: #38bdf8; /* Moonlight cyan */
+  --accent-secondary: #818cf8; /* Twilight indigo */
+  --accent-tertiary: #3b82f6; /* Sapphire */
+  --text-primary: #f0f9ff;
+  --text-muted: #94a3b8;
+  --text-glow: 0 0 10px rgba(56, 189, 248, 0.35);
+  --glow-btn: 0 0 14px rgba(56, 189, 248, 0.3);
+  --font-mono: 'JetBrains Mono', monospace;
+  --panel-blur: blur(16px);
+  --grid-overlay: linear-gradient(rgba(56, 189, 248, 0.02) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(56, 189, 248, 0.02) 1px, transparent 1px);
 }
 
 
@@ -203,6 +204,115 @@ body::before {
 /* ==========================================================================
    SECTION 3: LAYOUT & FLEXBOX UTILITIES
    ========================================================================== */
+
+/* Positioning Utilities */
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+.static { position: static; }
+.sticky { position: sticky; }
+
+.inset-0 { inset: 0px; }
+.top-0 { top: 0px; }
+.bottom-0 { bottom: 0px; }
+.left-0 { left: 0px; }
+.right-0 { right: 0px; }
+.top-full { top: 100%; }
+.bottom-full { bottom: 100%; }
+.top-1\/2 { top: 50%; }
+.-translate-y-1\/2 { transform: translateY(-50%); }
+
+.start-2 { inset-inline-start: 0.5rem; }
+.start-2\.5 { inset-inline-start: 0.625rem; }
+.start-3 { inset-inline-start: 0.75rem; }
+.start-4 { inset-inline-start: 1rem; }
+.end-2 { inset-inline-end: 0.5rem; }
+.end-2\.5 { inset-inline-end: 0.625rem; }
+.end-3 { inset-inline-end: 0.75rem; }
+.end-4 { inset-inline-end: 1rem; }
+
+.ps-8 { padding-inline-start: 2rem; }
+.ps-9 { padding-inline-start: 2.25rem; }
+.ps-10 { padding-inline-start: 2.5rem; }
+.pe-8 { padding-inline-end: 2rem; }
+.pe-12 { padding-inline-end: 3rem; }
+.pe-14 { padding-inline-end: 3.5rem; }
+.pe-16 { padding-inline-end: 4rem; }
+
+.text-start { text-align: start; }
+.text-end { text-align: end; }
+
+/* Combobox & Search/Select Inputs Alignment */
+.combobox-input-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.combobox-search-icon {
+  position: absolute;
+  inset-inline-start: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+  color: var(--accent-primary);
+}
+
+.combobox-input-field {
+  width: 100%;
+  padding-inline-start: 2.25rem !important;
+  padding-inline-end: 3.5rem !important;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  text-align: start;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.combobox-input-field:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px var(--accent-primary);
+}
+
+.combobox-actions-group {
+  position: absolute;
+  inset-inline-end: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  z-index: 2;
+}
+
+.combobox-icon-btn {
+  padding: 0.25rem;
+  border-radius: 0.375rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.combobox-icon-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+}
 
 .hidden { display: none; }
 .flex { display: flex; }
@@ -639,10 +749,10 @@ input[type="range"] {
   background: rgba(0, 0, 0, 0.02) !important;
 }
 
-body.theme-cyberpunk .upload-card:hover, 
-body.theme-retro .upload-card:hover, 
-body.theme-futuristic .upload-card:hover {
-  background: rgba(255, 255, 255, 0.02) !important;
+body.theme-mushaf .upload-card:hover, 
+body.theme-kiswa .upload-card:hover, 
+body.theme-fajr .upload-card:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
 }
 
 .upload-title {
@@ -745,21 +855,24 @@ body.theme-minimalist .btn-active {
 #quran-reciters-list,
 #mp3-reciters-list,
 #quran-surahs-list,
-#quran-quick-surahs-list {
+#quran-quick-surahs-list,
+.reciter-combobox-dropdown {
   background-color: var(--bg-primary) !important;
   opacity: 1 !important;
-  z-index: 1000 !important;
+  z-index: 9999 !important;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75), 0 0 0 1px var(--border-color) !important;
 }
 
-body.theme-cozy #quran-reciters-list,
-body.theme-cozy #mp3-reciters-list,
-body.theme-cozy #quran-surahs-list,
-body.theme-cozy #quran-quick-surahs-list,
-body.theme-minimalist #quran-reciters-list,
-body.theme-minimalist #mp3-reciters-list,
-body.theme-minimalist #quran-surahs-list,
-body.theme-minimalist #quran-quick-surahs-list {
+body.theme-parchment #quran-reciters-list,
+body.theme-parchment #mp3-reciters-list,
+body.theme-parchment #quran-surahs-list,
+body.theme-parchment #quran-quick-surahs-list,
+body.theme-parchment .reciter-combobox-dropdown,
+body.theme-noor #quran-reciters-list,
+body.theme-noor #mp3-reciters-list,
+body.theme-noor #quran-surahs-list,
+body.theme-noor #quran-quick-surahs-list,
+body.theme-noor .reciter-combobox-dropdown {
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 0 1px var(--border-color) !important;
 }
 
@@ -816,5 +929,113 @@ body.theme-minimalist #quran-quick-surahs-list {
 }
 .quran-reader-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--accent-primary);
+}
+
+/* ==========================================================================
+   SECTION 6: RTL & ARABIC LANGUAGE SUPPORT
+   ========================================================================== */
+
+body.lang-ar,
+html[dir="rtl"] body {
+  font-family: 'Amiri', 'Outfit', system-ui, -apple-system, sans-serif;
+  letter-spacing: normal;
+}
+
+body.lang-ar .font-mono,
+html[dir="rtl"] .font-mono {
+  font-family: 'JetBrains Mono', 'Amiri', monospace;
+}
+
+/* Directional adjustments for badges and icons in RTL */
+html[dir="rtl"] .rotate-rtl {
+  transform: scaleX(-1);
+}
+
+html[dir="rtl"] .text-left {
+  text-align: right;
+}
+
+html[dir="rtl"] .text-right {
+  text-align: left;
+}
+
+/* Arabic numbers formatting and calligraphy polish */
+.arabic-numeral {
+  font-family: 'Amiri', serif;
+  font-variant-numeric: normal;
+}
+
+/* ==========================================================================
+   SECTION 7: COMBOBOX & SELECTOR INPUT UTILITIES
+   ========================================================================== */
+.combobox-input-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.combobox-search-icon {
+  position: absolute;
+  inset-inline-start: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: var(--text-muted);
+  z-index: 5;
+}
+
+.combobox-input-field {
+  width: 100%;
+  height: 2.5rem; /* 40px */
+  padding-inline-start: 2.25rem !important; /* leaves room for search icon */
+  padding-inline-end: 4.25rem !important;  /* leaves room for action buttons */
+  font-size: 0.8rem;
+  background: var(--bg-screen, rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.combobox-input-field:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(var(--accent-primary), 0.2);
+}
+
+.combobox-actions-group {
+  position: absolute;
+  inset-inline-end: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  z-index: 5;
+}
+
+.combobox-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.combobox-icon-btn:hover {
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.08);
 }
 

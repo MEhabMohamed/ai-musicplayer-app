@@ -16,6 +16,7 @@ export class AudioEngine {
   
   public voiceAmplitude = 0.0; // Keep field for visualizer compatibility
   private durationCallback: ((duration: number) => void) | null = null;
+  private endedCallback: (() => void) | null = null;
 
   constructor() {
     // Context is initialized on user interaction
@@ -23,6 +24,10 @@ export class AudioEngine {
 
   public registerDurationCallback(cb: (duration: number) => void) {
     this.durationCallback = cb;
+  }
+
+  public registerEndedCallback(cb: () => void) {
+    this.endedCallback = cb;
   }
 
   public init() {
@@ -49,6 +54,12 @@ export class AudioEngine {
     this.audioEl.addEventListener('loadedmetadata', () => {
       if (this.audioEl && this.durationCallback) {
         this.durationCallback(this.audioEl.duration);
+      }
+    });
+
+    this.audioEl.addEventListener('ended', () => {
+      if (this.endedCallback) {
+        this.endedCallback();
       }
     });
     

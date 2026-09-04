@@ -24,6 +24,8 @@ export interface Song {
   duration: number; // total duration in seconds
   isCustom?: boolean;
   audioUrl?: string;
+  isStreamTrack?: boolean;
+  chapterId?: number;
 }
 
 export interface VoiceOption {
@@ -45,7 +47,7 @@ export interface PlayerState {
   loop: boolean;
 }
 
-export type ThemeId = 'cyberpunk' | 'retro' | 'futuristic' | 'cozy' | 'minimalist';
+export type ThemeId = 'mushaf' | 'kiswa' | 'parchment' | 'noor' | 'fajr';
 
 export interface Theme {
   id: ThemeId;

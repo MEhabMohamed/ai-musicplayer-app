@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   Book, 
   ChevronLeft, 
@@ -14,6 +14,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { QURAN_SURAHS, QURAN_JUZS, type SurahMeta } from '../data/quranMetadata';
+import { useLanguage } from '../services/i18n';
 
 export type QuranVersion = 'arabic' | 'english' | 'dual';
 
@@ -51,6 +52,7 @@ interface QuranPageViewerProps {
 }
 
 export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah }) => {
+  const { t } = useLanguage();
   const [currentPage, setCurrentPage] = useState<number>(() => {
     const saved = localStorage.getItem('quran_last_page');
     const parsed = saved ? parseInt(saved, 10) : 1;
@@ -72,7 +74,38 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
 
   // Quick Surah select dropdown state
   const [isQuickSurahOpen, setIsQuickSurahOpen] = useState<boolean>(false);
+  const [openQuickSurahUpward, setOpenQuickSurahUpward] = useState<boolean>(false);
+  const [quickSurahMaxHeight, setQuickSurahMaxHeight] = useState<number>(240);
   const quickSurahRef = useRef<HTMLDivElement | null>(null);
+
+  // Smart positioning: flip Quick Surah dropdown upwards if opened near the bottom of viewport
+  const checkQuickSurahPosition = useCallback(() => {
+    if (quickSurahRef.current) {
+      const rect = quickSurahRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      const shouldOpenUp = (spaceBelow < 280 && spaceAbove > spaceBelow) || (spaceBelow < 220 && spaceAbove > 140);
+      setOpenQuickSurahUpward(shouldOpenUp);
+
+      const availableHeight = shouldOpenUp
+        ? Math.min(260, Math.max(140, spaceAbove - 20))
+        : Math.min(260, Math.max(140, spaceBelow - 20));
+      setQuickSurahMaxHeight(availableHeight);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isQuickSurahOpen) {
+      checkQuickSurahPosition();
+      window.addEventListener('resize', checkQuickSurahPosition);
+      window.addEventListener('scroll', checkQuickSurahPosition, true);
+      return () => {
+        window.removeEventListener('resize', checkQuickSurahPosition);
+        window.removeEventListener('scroll', checkQuickSurahPosition, true);
+      };
+    }
+  }, [isQuickSurahOpen, checkQuickSurahPosition]);
 
   // Save current page to local storage
   useEffect(() => {
@@ -270,7 +303,7 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
               title="View Arabic Uthmanic Text"
               id="quran-version-arabic"
             >
-              عربي (Arabic)
+              {t.versionArabic}
             </button>
             <button
               type="button"
@@ -281,7 +314,7 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
               title="View English Translation"
               id="quran-version-english"
             >
-              English
+              {t.versionEnglish}
             </button>
             <button
               type="button"
@@ -292,7 +325,7 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
               title="View Arabic & English Parallel"
               id="quran-version-dual"
             >
-              <Languages className="w-3 h-3" /> Dual
+              <Languages className="w-3 h-3" /> {t.versionDual}
             </button>
           </div>
 
@@ -302,18 +335,18 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
               type="button"
               onClick={() => setIsIndexOpen(true)}
               className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-[var(--border-color)] bg-[var(--bg-input)] hover:border-[var(--accent-primary)] text-theme-primary transition-all flex items-center gap-1.5 shadow-sm"
-              title="Open Quran Index to Jump to Surah, Juz, or Page"
+              title={t.indexTitle}
               id="quran-index-open-btn"
             >
               <Book className="w-3.5 h-3.5 text-[var(--accent-secondary)]" />
-              <span>Index / الفهرس</span>
+              <span>{t.indexBtn}</span>
             </button>
 
             <button
               type="button"
               onClick={() => setIsExpanded(!isExpanded)}
               className="p-1.5 text-xs rounded-lg border border-[var(--border-color)] bg-[var(--bg-input)] hover:border-[var(--accent-secondary)] text-theme-muted hover:text-theme-primary transition-all"
-              title={isExpanded ? "Collapse View" : "Expand to Fullscreen"}
+              title={isExpanded ? t.exitFullscreenBtn : t.fullscreenBtn}
               id="quran-expand-toggle-btn"
             >
               {isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -331,15 +364,15 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
               onClick={() => jumpToPage(currentPage - 1)}
               disabled={currentPage <= 1 || isLoading}
               className="p-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-input)] hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed text-theme-primary transition-all flex items-center gap-1 text-xs"
-              title="Previous Page"
+              title={t.prevPageBtn}
               id="quran-prev-page-btn"
             >
-              <ChevronLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Prev</span>
+              <ChevronLeft className="w-4 h-4 rotate-rtl" />
+              <span className="hidden sm:inline">{t.prevPageBtn}</span>
             </button>
 
             <div className="flex items-center gap-1.5 text-xs font-mono">
-              <span className="text-theme-muted">Page</span>
+              <span className="text-theme-muted">{t.pageLabel}</span>
               <span className="font-bold text-[var(--accent-secondary)] text-sm px-1.5 py-0.5 rounded bg-black/30 border border-[var(--border-color)]/50">
                 {currentPage}
               </span>
@@ -351,11 +384,11 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
               onClick={() => jumpToPage(currentPage + 1)}
               disabled={currentPage >= 604 || isLoading}
               className="p-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-input)] hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed text-theme-primary transition-all flex items-center gap-1 text-xs"
-              title="Next Page"
+              title={t.nextPageBtn}
               id="quran-next-page-btn"
             >
-              <span className="hidden sm:inline">Next</span>
-              <ChevronRight className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.nextPageBtn}</span>
+              <ChevronRight className="w-4 h-4 rotate-rtl" />
             </button>
           </div>
 
@@ -365,7 +398,11 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
             <div ref={quickSurahRef} className="relative z-50">
               <button
                 type="button"
-                onClick={() => setIsQuickSurahOpen(!isQuickSurahOpen)}
+                onClick={() => {
+                  const next = !isQuickSurahOpen;
+                  setIsQuickSurahOpen(next);
+                  if (next) setTimeout(checkQuickSurahPosition, 0);
+                }}
                 className="px-2 py-1 text-[11px] rounded-lg border border-[var(--border-color)] bg-[var(--bg-input)] text-theme-primary hover:border-[var(--accent-primary)] transition-all flex items-center gap-1"
                 id="quran-quick-surah-btn"
                 title="Choose Surah"
@@ -378,9 +415,14 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
 
               {isQuickSurahOpen && (
                 <div 
-                  className="absolute right-0 top-full mt-1 w-64 max-h-60 overflow-y-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-2xl p-1 z-[1000] quran-reader-scroll"
+                  className={`reciter-combobox-dropdown absolute right-0 overflow-y-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-2xl p-1 z-[1000] quran-reader-scroll ${
+                    openQuickSurahUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+                  }`}
                   id="quran-quick-surahs-list"
-                  style={{ zIndex: 1000 }}
+                  style={{ 
+                    zIndex: 1000,
+                    maxHeight: `${quickSurahMaxHeight}px`
+                  }}
                 >
                   <div className="p-1.5 text-[10px] font-mono text-theme-muted uppercase tracking-wider border-b border-[var(--border-color)]/40 flex justify-between">
                     <span>Select Surah</span>
@@ -686,14 +728,14 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
               <div className="flex items-center gap-2">
                 <Book className="w-4 h-4 text-[var(--accent-secondary)]" />
                 <h3 className="text-sm font-bold uppercase tracking-wider text-theme-primary">
-                  Quran Navigation Index (الفهرس)
+                  {t.indexTitle}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsIndexOpen(false)}
                 className="p-1 rounded-lg hover:bg-white/10 text-theme-muted hover:text-theme-primary transition-all"
-                title="Close Index"
+                title={t.closeModal}
                 id="quran-index-close-btn"
               >
                 <X className="w-4 h-4" />
@@ -710,7 +752,7 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
                 }`}
                 id="quran-index-tab-surah"
               >
-                Surahs (114)
+                {t.tabBySurah}
               </button>
               <button
                 type="button"
@@ -720,7 +762,7 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
                 }`}
                 id="quran-index-tab-juz"
               >
-                Juz (30)
+                {t.tabByJuz}
               </button>
               <button
                 type="button"
@@ -730,7 +772,7 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
                 }`}
                 id="quran-index-tab-page"
               >
-                Pages (604)
+                {t.tabByPage}
               </button>
             </div>
 
@@ -742,7 +784,7 @@ export const QuranPageViewer: React.FC<QuranPageViewerProps> = ({ onPlaySurah })
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
                   <input
                     type="text"
-                    placeholder="Search Surah name or number..."
+                    placeholder={t.searchSurahPlaceholder}
                     value={surahFilterQuery}
                     onChange={(e) => setSurahFilterQuery(e.target.value)}
                     className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] text-theme-primary placeholder-theme-muted focus:outline-none focus:border-[var(--accent-primary)]"

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Song } from '../types/music';
 import { Play, X, ListMusic } from 'lucide-react';
+import { useLanguage } from '../services/i18n';
 
 interface PlaylistManagerProps {
   songs: Song[];
@@ -17,6 +18,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
   onSelectSong,
   onRemoveSong
 }) => {
+  const { t } = useLanguage();
 
   // Format seconds to MM:SS
   const formatTime = (secs: number) => {
@@ -30,7 +32,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ListMusic className="w-5 h-5 text-[var(--accent-secondary)]" />
-          <h2 className="text-md font-bold uppercase tracking-wider">Your Playlist</h2>
+          <h2 className="text-md font-bold uppercase tracking-wider">{t.playlistTitle}</h2>
         </div>
       </div>
 
@@ -41,8 +43,8 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
       >
         {songs.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-theme-muted text-sm border border-[var(--border-color)]/30 rounded-xl bg-black/10">
-            <span className="mb-2">Your playlist is empty.</span>
-            <span className="text-xs">Search or prompt a theme above to synthesize a new track!</span>
+            <span className="mb-2 font-medium">{t.playlistEmpty}</span>
+            <span className="text-xs">{t.playlistEmptySub}</span>
           </div>
         ) : (
           songs.map((song) => {
@@ -106,9 +108,9 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
 
                   <button
                     onClick={() => onRemoveSong(song.id)}
-                    id={`btn-delete-${song.id}`}
-                    title="Remove Recitation"
-                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded border transition-all duration-300 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
+                    id={`btn-remove-song-${song.id}`}
+                    title={t.removeTrack}
+                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded border transition-all duration-300 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
