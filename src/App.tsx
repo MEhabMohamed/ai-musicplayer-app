@@ -13,6 +13,10 @@ import {
   STREAM_RECITERS, 
   type StreamReciter 
 } from './components/ContinuousStream';
+import { 
+  createRecitationTrack, 
+  fetchQuranWithAyatTrack 
+} from './services/quranTrackService';
 
 const DEFAULT_RECITER: StreamReciter = STREAM_RECITERS.find(r => r.id === 30) || STREAM_RECITERS[0];
 
@@ -38,6 +42,22 @@ function AppContent() {
   const activeSourceRef = useRef<SearchSource>('quran');
   const streamReciterRef = useRef<StreamReciter | null>(DEFAULT_RECITER);
   const streamReciterModeRef = useRef<'single' | 'shuffle'>('single');
+  const songsRef = useRef<Song[]>([]);
+  const currentSongIdRef = useRef<string | null>(null);
+  const currentSongRef = useRef<Song | null>(null);
+  const loopRef = useRef<boolean>(false);
+  const shuffleRef = useRef<boolean>(false);
+  const isPlayingRef = useRef<boolean>(false);
+
+  // Player state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [showLyricsSection, setShowLyricsSection] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(0.8);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [shuffle, setShuffle] = useState(false);
+  const [loop, setLoop] = useState(false);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -55,16 +75,21 @@ function AppContent() {
   useEffect(() => {
     streamReciterModeRef.current = streamReciterMode;
   }, [streamReciterMode]);
-
-  // Player state
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [showLyricsSection, setShowLyricsSection] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolume] = useState(0.8);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [shuffle, setShuffle] = useState(false);
-  const [loop, setLoop] = useState(false);
+  useEffect(() => {
+    songsRef.current = songs;
+  }, [songs]);
+  useEffect(() => {
+    currentSongIdRef.current = currentSongId;
+  }, [currentSongId]);
+  useEffect(() => {
+    loopRef.current = loop;
+  }, [loop]);
+  useEffect(() => {
+    shuffleRef.current = shuffle;
+  }, [shuffle]);
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
   // Lyric Scrolling State
   const [currentLyricText, setCurrentLyricText] = useState('No Audio Loaded');
@@ -82,6 +107,8 @@ function AppContent() {
     document.body.className = `theme-${activeTheme}`;
   }, [activeTheme]);
 
+  const handleTrackEndedRef = useRef<() => void>(() => {});
+
   // Register dynamic duration listener on mount to resolve true durations of tracks
   useEffect(() => {
     audioEngine.current.registerDurationCallback((loadedDuration) => {
@@ -91,21 +118,17 @@ function AppContent() {
           setStreamTrack(prev => prev ? { ...prev, duration: loadedDuration } : null);
         } else {
           setSongs(prevSongs => prevSongs.map(song => 
-            song.id === currentSongId ? { ...song, duration: loadedDuration } : song
+            song.id === currentSongIdRef.current ? { ...song, duration: loadedDuration } : song
           ));
         }
       }
     });
 
-    // Native ended event from HTML5 audio: advance to next track reliably
+    // Native ended event from HTML5 audio: advance/repeat/shuffle reliably via latest refs
     audioEngine.current.registerEndedCallback(() => {
-      if (isStreamingRef.current || activeSourceRef.current === 'stream') {
-        advanceStream(1);
-      } else {
-        handleNext();
-      }
+      handleTrackEndedRef.current();
     });
-  }, [currentSongId]);
+  }, []);
 
   // Handle media player time ticker update
   useEffect(() => {
@@ -116,13 +139,14 @@ function AppContent() {
         setCurrentTime(time);
 
         // Sync lyrics for non-stream sections that have lyrics
-        if (activeSourceRef.current !== 'stream' && currentSong && currentSong.lyrics && currentSong.lyrics.length > 0) {
+        if (activeSourceRef.current !== 'stream' && currentSongRef.current && currentSongRef.current.lyrics && currentSongRef.current.lyrics.length > 0) {
           syncLyrics(time);
+        }
 
-          // For playlist tracks: auto-advance when reaching the end
-          if (time >= currentSong.duration - 0.2) {
-            handleNext();
-          }
+        // Auto-advance or repeat playlist tracks near completion if native ended hasn't fired
+        const track = currentSongRef.current;
+        if (activeSourceRef.current !== 'stream' && track && track.duration > 2 && time >= track.duration - 0.25) {
+          handleTrackEndedRef.current();
         }
       }, 100);
     }
@@ -177,9 +201,11 @@ function AppContent() {
     if (isPlaying) {
       audioEngine.current.pause();
       setIsPlaying(false);
+      isPlayingRef.current = false;
     } else {
       audioEngine.current.start(currentSong, currentTime);
       setIsPlaying(true);
+      isPlayingRef.current = true;
     }
   };
 
@@ -190,6 +216,7 @@ function AppContent() {
     }
     audioEngine.current.stop();
     setIsPlaying(false);
+    isPlayingRef.current = false;
     setCurrentTime(0);
     lastSpokenLineIndex.current = -1;
     setCurrentLyricText(currentSong ? t.readyStatus : t.noSongsLoaded);
@@ -207,6 +234,127 @@ function AppContent() {
       syncLyrics(time);
     }
   };
+
+  // Repeats the currently active playing track from 0:00
+  const replayActiveTrack = () => {
+    const track = currentSongRef.current;
+    if (!track) return;
+    isAdvancingRef.current = true;
+    audioEngine.current.stop();
+    setCurrentTime(0);
+    lastSpokenLineIndex.current = -1;
+    if (track.lyrics && track.lyrics.length > 0) {
+      syncLyrics(0);
+    }
+    setTimeout(() => {
+      audioEngine.current.start(track, 0);
+      setIsPlaying(true);
+      isPlayingRef.current = true;
+      isAdvancingRef.current = false;
+    }, 100);
+  };
+
+  // Auto-advances to the next or previous surah track in order (1-114)
+  const advanceToNextSurahTrack = async (currentTrack: Song, direction: 1 | -1 = 1) => {
+    if (isAdvancingRef.current) return;
+    isAdvancingRef.current = true;
+
+    try {
+      const currentChapterId = currentTrack.chapterId || 1;
+      let nextSurahNum = currentChapterId + direction;
+      if (nextSurahNum > 114) nextSurahNum = 1;
+      if (nextSurahNum < 1) nextSurahNum = 114;
+
+      const reciter = STREAM_RECITERS.find(r => r.id === currentTrack.reciterId) || streamReciterRef.current || DEFAULT_RECITER;
+
+      setCurrentLyricText(t.loadingTrack);
+
+      let nextTrack: Song;
+      if (currentTrack.isQuran) {
+        nextTrack = await fetchQuranWithAyatTrack(nextSurahNum, reciter, language);
+      } else {
+        nextTrack = createRecitationTrack(nextSurahNum, reciter, language);
+      }
+
+      setSongs(prev => {
+        const updated = [...prev, nextTrack];
+        songsRef.current = updated;
+        return updated;
+      });
+
+      selectTrack(nextTrack, true);
+    } catch (err) {
+      console.error("Failed to advance surah:", err);
+    } finally {
+      setTimeout(() => {
+        isAdvancingRef.current = false;
+      }, 600);
+    }
+  };
+
+  // Unified completion handler: handles Repeat, Shuffle, and Next Surah progression
+  const handleTrackEnded = () => {
+    if (isStreamingRef.current || activeSourceRef.current === 'stream') {
+      if (loopRef.current) {
+        replayActiveTrack();
+      } else {
+        advanceStream(1);
+      }
+      return;
+    }
+
+    if (isAdvancingRef.current) return;
+
+    const currentSongs = songsRef.current;
+    const currentId = currentSongIdRef.current;
+    const currentTrack = currentSongs.find(s => s.id === currentId) || currentSongRef.current;
+
+    if (!currentTrack && currentSongs.length === 0) return;
+
+    // 1. Repeat mode active: repeat the active playing audio!
+    if (loopRef.current && currentTrack) {
+      replayActiveTrack();
+      return;
+    }
+
+    // 2. Shuffle mode active: randomly choose from playlist!
+    if (shuffleRef.current && currentSongs.length > 0) {
+      if (currentSongs.length === 1) {
+        replayActiveTrack();
+        return;
+      }
+      const otherSongs = currentSongs.filter(s => s.id !== currentId);
+      const randomSong = otherSongs[Math.floor(Math.random() * otherSongs.length)] || currentSongs[0];
+      selectTrack(randomSong, true);
+      return;
+    }
+
+    // 3. Sequential playback (Repeat is OFF, Shuffle is OFF):
+    const currentIdx = currentSongs.findIndex(s => s.id === currentId);
+
+    // If next track exists in playlist, advance to it
+    if (currentIdx !== -1 && currentIdx + 1 < currentSongs.length) {
+      selectTrack(currentSongs[currentIdx + 1], true);
+      return;
+    }
+
+    // If at the end of playlist (or playlist only has 1 track):
+    // If it's a Quran recitation track (has chapterId), auto-advance to next surah!
+    if (currentTrack && currentTrack.chapterId) {
+      advanceToNextSurahTrack(currentTrack, 1);
+      return;
+    }
+
+    // Default: wrap playlist
+    if (currentSongs.length > 0) {
+      selectTrack(currentSongs[0], true);
+    }
+  };
+
+  // Synchronize the ref with the latest handleTrackEnded
+  useEffect(() => {
+    handleTrackEndedRef.current = handleTrackEnded;
+  });
 
   // Continuous Stream Advance (Closed-loop: Wraps 114 -> 1 in Mushaf order with transition lock)
   const advanceStream = async (direction: 1 | -1 = 1) => {
@@ -239,7 +387,7 @@ function AppContent() {
       setCurrentLyricText(t.loadingTrack);
       const nextTrack = await fetchSurahTrack(nextSurah, nextReciter);
       setStreamTrack(nextTrack);
-      selectTrack(nextTrack);
+      selectTrack(nextTrack, true);
     } catch (err) {
       console.error("Stream advance error:", err);
     } finally {
@@ -267,7 +415,7 @@ function AppContent() {
       setCurrentLyricText(t.loadingTrack);
       const streamSong = await fetchSurahTrack(startSurah, reciter);
       setStreamTrack(streamSong);
-      selectTrack(streamSong);
+      selectTrack(streamSong, true);
     } catch (err) {
       console.error("Failed to start continuous stream:", err);
     } finally {
@@ -283,23 +431,30 @@ function AppContent() {
       return;
     }
 
-    if (songs.length === 0) return;
+    const currentSongs = songsRef.current;
+    if (currentSongs.length === 0) return;
 
-    if (loop && !shuffle) {
-      // If loop mode is on and not shuffling, replay same track
-      handleSeek(0);
+    // Shuffle active: randomly choose from playlist
+    if (shuffleRef.current && currentSongs.length > 1) {
+      const otherSongs = currentSongs.filter(s => s.id !== currentSongIdRef.current);
+      const randomSong = otherSongs[Math.floor(Math.random() * otherSongs.length)] || currentSongs[0];
+      selectTrack(randomSong, true);
       return;
     }
 
-    let nextIdx = 0;
-    if (shuffle) {
-      nextIdx = Math.floor(Math.random() * songs.length);
-    } else if (currentSongId) {
-      const currentIdx = songs.findIndex(s => s.id === currentSongId);
-      nextIdx = (currentIdx + 1) % songs.length;
+    const currentIdx = currentSongs.findIndex(s => s.id === currentSongIdRef.current);
+    if (currentIdx !== -1 && currentIdx + 1 < currentSongs.length) {
+      selectTrack(currentSongs[currentIdx + 1], true);
+      return;
     }
 
-    selectTrack(songs[nextIdx]);
+    const currentTrack = currentSongs.find(s => s.id === currentSongIdRef.current) || currentSongRef.current;
+    if (currentTrack && currentTrack.chapterId) {
+      advanceToNextSurahTrack(currentTrack, 1);
+      return;
+    }
+
+    selectTrack(currentSongs[0], true);
   };
 
   const handlePrev = () => {
@@ -308,19 +463,39 @@ function AppContent() {
       return;
     }
 
-    if (songs.length === 0) return;
-    let prevIdx = 0;
+    const currentSongs = songsRef.current;
+    if (currentSongs.length === 0) return;
 
-    if (currentSongId) {
-      const currentIdx = songs.findIndex(s => s.id === currentSongId);
-      prevIdx = currentIdx - 1 < 0 ? songs.length - 1 : currentIdx - 1;
+    // Shuffle active: randomly choose from playlist
+    if (shuffleRef.current && currentSongs.length > 1) {
+      const otherSongs = currentSongs.filter(s => s.id !== currentSongIdRef.current);
+      const randomSong = otherSongs[Math.floor(Math.random() * otherSongs.length)] || currentSongs[0];
+      selectTrack(randomSong, true);
+      return;
     }
 
-    selectTrack(songs[prevIdx]);
+    const currentIdx = currentSongs.findIndex(s => s.id === currentSongIdRef.current);
+    if (currentIdx > 0) {
+      selectTrack(currentSongs[currentIdx - 1], true);
+      return;
+    }
+
+    if (currentSongs.length > 1) {
+      selectTrack(currentSongs[currentSongs.length - 1], true);
+      return;
+    }
+
+    const currentTrack = currentSongs.find(s => s.id === currentSongIdRef.current) || currentSongRef.current;
+    if (currentTrack && currentTrack.chapterId) {
+      advanceToNextSurahTrack(currentTrack, -1);
+      return;
+    }
+
+    selectTrack(currentSongs[0], true);
   };
 
-  const selectTrack = (song: Song) => {
-    if (song.id === currentSongId) {
+  const selectTrack = (song: Song, forcePlay = false) => {
+    if (song.id === currentSongIdRef.current && !forcePlay) {
       handlePlayPause();
       return;
     }
@@ -331,13 +506,32 @@ function AppContent() {
     setCurrentLyricText(t.loadingTrack);
 
     setCurrentSongId(song.id);
+    currentSongIdRef.current = song.id;
+    currentSongRef.current = song;
     setDuration(song.duration);
 
-    // Autoplay next song if player was running or if streaming
+    // Autoplay next song if player was running or if streaming or forcePlay
     setTimeout(() => {
       audioEngine.current.start(song, 0);
       setIsPlaying(true);
+      isPlayingRef.current = true;
     }, 100);
+  };
+
+  const handleShuffleToggle = () => {
+    setShuffle(prev => {
+      const next = !prev;
+      shuffleRef.current = next;
+      return next;
+    });
+  };
+
+  const handleLoopToggle = () => {
+    setLoop(prev => {
+      const next = !prev;
+      loopRef.current = next;
+      return next;
+    });
   };
 
   const handleRemoveSong = (songId: string) => {
@@ -633,8 +827,8 @@ function AppContent() {
               onSeek={handleSeek}
               onVolumeChange={(v) => { setVolume(v); audioEngine.current.setVolume(v); }}
               onMuteToggle={() => { setIsMuted(!isMuted); audioEngine.current.setMute(!isMuted); }}
-              onShuffleToggle={() => setShuffle(!shuffle)}
-              onLoopToggle={() => setLoop(!loop)}
+              onShuffleToggle={handleShuffleToggle}
+              onLoopToggle={handleLoopToggle}
             />
           </div>
 

@@ -26,6 +26,9 @@ export interface Song {
   audioUrl?: string;
   isStreamTrack?: boolean;
   chapterId?: number;
+  reciterId?: number;
+  isRecitationOnly?: boolean;
+  isQuran?: boolean;
 }
 
 export interface VoiceOption {

@@ -365,7 +365,10 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({
           chords: [],
           seed: Math.random(),
           duration: duration,
-          audioUrl: audioUrl
+          audioUrl: audioUrl,
+          chapterId: surahNum,
+          reciterId: selectedReciter.id,
+          isQuran: true
         };
 
         setLoadingStatus('idle');
@@ -427,7 +430,10 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({
           chords: [],
           seed: Math.random(),
           duration: duration,
-          audioUrl: audioUrl
+          audioUrl: audioUrl,
+          chapterId: surahNum,
+          reciterId: selectedReciter.id,
+          isRecitationOnly: true
         };
 
         setLoadingStatus('idle');
