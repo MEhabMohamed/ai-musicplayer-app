@@ -110,6 +110,19 @@ export function preloadSurahTrack(
   };
 }
 
+function normalizeArabic(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u064B-\u065F\u0670]/g, '') // remove tashkeel
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ي')
+    .toLowerCase()
+    .trim();
+}
+
 interface ContinuousStreamProps {
   isStreaming: boolean;
   currentStreamSurah?: number;
@@ -135,17 +148,21 @@ export const ContinuousStream: React.FC<ContinuousStreamProps> = ({
 
   // Dropdown states
   const [isSurahDropdownOpen, setIsSurahDropdownOpen] = useState(false);
+  const [isSurahFocused, setIsSurahFocused] = useState(false);
   const [surahSearchText, setSurahSearchText] = useState('');
   const [openSurahUpward, setOpenSurahUpward] = useState(false);
   const [surahDropdownMaxHeight, setSurahDropdownMaxHeight] = useState(240);
 
   const surahDropdownRef = useRef<HTMLDivElement | null>(null);
+  const surahInputRef = useRef<HTMLInputElement | null>(null);
 
   // Close dropdown on outside click
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
       if (surahDropdownRef.current && !surahDropdownRef.current.contains(e.target as Node)) {
         setIsSurahDropdownOpen(false);
+        setIsSurahFocused(false);
+        setSurahSearchText('');
       }
     };
     document.addEventListener('mousedown', handleOutside);
@@ -187,13 +204,20 @@ export const ContinuousStream: React.FC<ContinuousStreamProps> = ({
   // Filtered surahs for starting picker
   const filteredSurahs = QURAN_SURAHS.filter(s => {
     if (!surahSearchText.trim()) return true;
-    const query = surahSearchText.toLowerCase();
+    const query = surahSearchText.toLowerCase().trim();
+    const normQuery = normalizeArabic(query);
+    const normSurahArabic = normalizeArabic(s.nameArabic);
     return (
       String(s.id).includes(query) ||
       s.name.toLowerCase().includes(query) ||
-      s.nameArabic.includes(query)
+      s.nameArabic.toLowerCase().includes(query) ||
+      normSurahArabic.includes(normQuery)
     );
   });
+
+  const displaySurahValue = isSurahFocused
+    ? surahSearchText
+    : `${startingSurah.id}. ${startingSurah.name} (${startingSurah.nameArabic})`;
 
   const handleStart = () => {
     onStartStream(startingSurahId, selectedReciterMode, selectedReciter);
@@ -243,34 +267,54 @@ export const ContinuousStream: React.FC<ContinuousStreamProps> = ({
             </div>
 
             <input
+              ref={surahInputRef}
               type="text"
-              value={surahSearchText ? surahSearchText : `${startingSurah.id}. ${startingSurah.name} (${startingSurah.nameArabic})`}
+              value={displaySurahValue}
               onChange={(e) => {
                 setSurahSearchText(e.target.value);
                 if (!isSurahDropdownOpen) setIsSurahDropdownOpen(true);
               }}
               onFocus={() => {
+                setIsSurahFocused(true);
                 setIsSurahDropdownOpen(true);
                 setSurahSearchText('');
                 setTimeout(() => {
                   surahDropdownRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }, 50);
               }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setIsSurahDropdownOpen(false);
+                  setIsSurahFocused(false);
+                  setSurahSearchText('');
+                  surahInputRef.current?.blur();
+                } else if (e.key === 'Enter') {
+                  if (filteredSurahs.length > 0) {
+                    setStartingSurahId(filteredSurahs[0].id);
+                    setIsSurahDropdownOpen(false);
+                    setIsSurahFocused(false);
+                    setSurahSearchText('');
+                    surahInputRef.current?.blur();
+                  }
+                }
+              }}
               placeholder={t.searchSurahs}
               className="combobox-input-field"
               id="stream-starting-surah-input"
+              autoComplete="off"
             />
 
             <div className="combobox-actions-group">
-              {surahSearchText && (
+              {(isSurahFocused && surahSearchText) && (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setSurahSearchText('');
+                    surahInputRef.current?.focus();
                   }}
                   className="combobox-icon-btn"
-                  title="Clear"
+                  title={language === 'ar' ? 'مسح' : 'Clear'}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -278,9 +322,20 @@ export const ContinuousStream: React.FC<ContinuousStreamProps> = ({
 
               <button
                 type="button"
-                onClick={() => setIsSurahDropdownOpen(!isSurahDropdownOpen)}
+                onClick={() => {
+                  const next = !isSurahDropdownOpen;
+                  setIsSurahDropdownOpen(next);
+                  if (next) {
+                    setIsSurahFocused(true);
+                    setSurahSearchText('');
+                    setTimeout(() => surahInputRef.current?.focus(), 0);
+                  } else {
+                    setIsSurahFocused(false);
+                    setSurahSearchText('');
+                  }
+                }}
                 className="combobox-icon-btn"
-                title="Toggle Surah List"
+                title={isSurahDropdownOpen ? "Close Surah List" : "Toggle Surah List"}
               >
                 <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isSurahDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -299,27 +354,34 @@ export const ContinuousStream: React.FC<ContinuousStreamProps> = ({
                 }}
               >
                 <div className="flex flex-col gap-1 overflow-y-auto max-h-52 pr-1 quran-reader-scroll">
-                  {filteredSurahs.map(s => (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        setStartingSurahId(s.id);
-                        setIsSurahDropdownOpen(false);
-                        setSurahSearchText('');
-                      }}
-                      className={`flex items-center justify-between p-2 rounded-lg text-xs text-start transition-all cursor-pointer ${
-                        startingSurahId === s.id
-                          ? 'bg-[var(--accent-primary)] text-white font-bold'
-                          : 'hover:bg-white/10 text-theme-primary'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono w-5 opacity-70">{s.id}.</span>
-                        <span>{s.name}</span>
-                      </div>
-                      <span className="font-serif opacity-85">{s.nameArabic}</span>
-                    </button>
-                  ))}
+                  {filteredSurahs.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-theme-muted select-none">
+                      {language === 'ar' ? 'لم يتم العثور على سور' : 'No surahs found'}
+                    </div>
+                  ) : (
+                    filteredSurahs.map(s => (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          setStartingSurahId(s.id);
+                          setIsSurahDropdownOpen(false);
+                          setIsSurahFocused(false);
+                          setSurahSearchText('');
+                        }}
+                        className={`flex items-center justify-between p-2 rounded-lg text-xs text-start transition-all cursor-pointer ${
+                          startingSurahId === s.id
+                            ? 'bg-[var(--accent-primary)] text-white font-bold'
+                            : 'hover:bg-white/10 text-theme-primary'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono w-5 opacity-70">{s.id}.</span>
+                          <span>{s.name}</span>
+                        </div>
+                        <span className="font-serif opacity-85">{s.nameArabic}</span>
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
             )}
