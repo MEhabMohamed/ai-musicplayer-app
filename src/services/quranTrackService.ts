@@ -13,13 +13,17 @@ export function createRecitationTrack(
 ): Song {
   const surahMeta = QURAN_SURAHS.find(s => s.id === surahNum) || QURAN_SURAHS[0];
   const paddedSurah = String(surahNum).padStart(3, '0');
-  const audioUrl = reciter.server
-    ? `${reciter.server}${paddedSurah}.mp3`
-    : `https://server8.mp3quran.net/afs/${paddedSurah}.mp3`;
+  const server = reciter.server
+    ? (reciter.server.endsWith('/') ? reciter.server : `${reciter.server}/`)
+    : 'https://server8.mp3quran.net/afs/';
+  const audioUrl = `${server}${paddedSurah}.mp3`;
 
   const reciterDisplayName = language === 'ar'
     ? (reciter.nameArabic || reciter.name)
     : (reciter.name || reciter.nameArabic);
+
+  // Initial estimate proportional to verse count; true audio duration is resolved on loadedmetadata
+  const estimatedDuration = Math.max(15, Math.round(surahMeta.verses * 4.5));
 
   return {
     id: `recitation-ch-${surahNum}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -31,7 +35,7 @@ export function createRecitationTrack(
     lyrics: [],
     chords: [],
     seed: Math.random(),
-    duration: 120, // dynamically resolved on loadedmetadata
+    duration: estimatedDuration,
     audioUrl,
     chapterId: surahNum,
     reciterId: reciter.id,
@@ -110,7 +114,7 @@ export async function fetchQuranWithAyatTrack(
     duration = (lastTiming.timestamp_to || lastTiming.timestamp_from || 0) / 1000;
   }
   if (!duration) {
-    duration = 180;
+    duration = Math.max(15, Math.round(surahMeta.verses * 4.5));
   }
 
   let lyricsLines: LyricsLine[] = [];

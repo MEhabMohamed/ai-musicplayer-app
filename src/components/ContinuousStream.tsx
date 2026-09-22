@@ -18,17 +18,25 @@ import {
 export type StreamReciter = ReciterItem;
 export const STREAM_RECITERS = ALL_RECITERS;
 
+export interface PreloadedTrackData {
+  track: Song;
+  audioEl: HTMLAudioElement;
+  surahNum: number;
+  reciterId: number;
+}
+
+export function buildSurahAudioUrl(surahNum: number, reciter: StreamReciter): string {
+  const paddedSurah = String(surahNum).padStart(3, '0');
+  const server = reciter.server
+    ? (reciter.server.endsWith('/') ? reciter.server : `${reciter.server}/`)
+    : 'https://server8.mp3quran.net/afs/';
+  return `${server}${paddedSurah}.mp3`;
+}
+
 export async function fetchSurahTrack(surahNum: number, reciter: StreamReciter): Promise<Song> {
   const surahMeta = QURAN_SURAHS.find(s => s.id === surahNum) || QURAN_SURAHS[0];
-  const paddedSurah = String(surahNum).padStart(3, '0');
-
-  // Direct MP3 server URL from MP3Quran servers
-  let audioUrl = "";
-  if (reciter.server) {
-    audioUrl = `${reciter.server}${paddedSurah}.mp3`;
-  } else {
-    audioUrl = `https://server8.mp3quran.net/afs/${paddedSurah}.mp3`;
-  }
+  const audioUrl = buildSurahAudioUrl(surahNum, reciter);
+  const estimatedDuration = Math.max(15, Math.round(surahMeta.verses * 4.5));
 
   return {
     id: `stream-surah-${surahNum}-${Date.now()}`,
@@ -40,10 +48,65 @@ export async function fetchSurahTrack(surahNum: number, reciter: StreamReciter):
     lyrics: [],
     chords: [],
     seed: Math.random(),
-    duration: 300,
+    duration: estimatedDuration,
     audioUrl,
     isStreamTrack: true,
-    chapterId: surahNum
+    chapterId: surahNum,
+    reciterId: reciter.id
+  };
+}
+
+/**
+ * Predictively preloads the next surah's audio in the background.
+ * Buffers audio data and resolves exact duration before the track starts playing.
+ */
+export function preloadSurahTrack(
+  surahNum: number, 
+  reciter: StreamReciter,
+  onMetadataLoaded?: (duration: number) => void
+): PreloadedTrackData {
+  const surahMeta = QURAN_SURAHS.find(s => s.id === surahNum) || QURAN_SURAHS[0];
+  const audioUrl = buildSurahAudioUrl(surahNum, reciter);
+  const estimatedDuration = Math.max(15, Math.round(surahMeta.verses * 4.5));
+
+  const track: Song = {
+    id: `stream-surah-${surahNum}-${Date.now()}`,
+    title: `Surah ${surahMeta.id}. ${surahMeta.name} (${surahMeta.nameArabic})`,
+    artist: reciter.nameArabic ? `${reciter.nameArabic} (${reciter.name})` : reciter.name,
+    genre: 'cozy',
+    tempo: 60,
+    key: 'C',
+    lyrics: [],
+    chords: [],
+    seed: Math.random(),
+    duration: estimatedDuration,
+    audioUrl,
+    isStreamTrack: true,
+    chapterId: surahNum,
+    reciterId: reciter.id
+  };
+
+  const audioEl = new Audio();
+  audioEl.crossOrigin = "anonymous";
+  audioEl.preload = "auto";
+  audioEl.src = audioUrl;
+
+  audioEl.addEventListener('loadedmetadata', () => {
+    if (audioEl.duration && audioEl.duration > 0 && audioEl.duration !== Infinity) {
+      track.duration = audioEl.duration;
+      if (onMetadataLoaded) {
+        onMetadataLoaded(audioEl.duration);
+      }
+    }
+  }, { once: true });
+
+  audioEl.load();
+
+  return {
+    track,
+    audioEl,
+    surahNum,
+    reciterId: reciter.id
   };
 }
 

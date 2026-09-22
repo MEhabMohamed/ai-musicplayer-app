@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Song, ThemeId } from './types/music';
 import { AudioEngine } from './services/AudioEngine';
 import { SongTicker } from './components/SongTicker';
@@ -10,13 +10,11 @@ import { LanguageProvider, useLanguage } from './services/i18n';
 import { QURAN_SURAHS } from './data/quranMetadata';
 import { 
   fetchSurahTrack, 
+  preloadSurahTrack,
+  type PreloadedTrackData,
   STREAM_RECITERS, 
   type StreamReciter 
 } from './components/ContinuousStream';
-import { 
-  createRecitationTrack, 
-  fetchQuranWithAyatTrack 
-} from './services/quranTrackService';
 
 const DEFAULT_RECITER: StreamReciter = STREAM_RECITERS.find(r => r.id === 30) || STREAM_RECITERS[0];
 
@@ -48,6 +46,8 @@ function AppContent() {
   const loopRef = useRef<boolean>(false);
   const shuffleRef = useRef<boolean>(false);
   const isPlayingRef = useRef<boolean>(false);
+  const preloadedStreamRef = useRef<PreloadedTrackData | null>(null);
+  const startTimeoutRef = useRef<number | null>(null);
 
   // Player state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -108,12 +108,16 @@ function AppContent() {
   }, [activeTheme]);
 
   const handleTrackEndedRef = useRef<() => void>(() => {});
+  const triggerNextSurahPreloadRef = useRef<(surah: number) => void>(() => {});
 
-  // Register dynamic duration listener on mount to resolve true durations of tracks
+  // Register dynamic duration and lifecycle listeners on mount to resolve true durations of tracks
   useEffect(() => {
     audioEngine.current.registerDurationCallback((loadedDuration) => {
       if (loadedDuration && loadedDuration > 0 && loadedDuration !== Infinity) {
         setDuration(loadedDuration);
+        if (currentSongRef.current) {
+          currentSongRef.current = { ...currentSongRef.current, duration: loadedDuration };
+        }
         if (isStreamingRef.current) {
           setStreamTrack(prev => prev ? { ...prev, duration: loadedDuration } : null);
         } else {
@@ -128,7 +132,22 @@ function AppContent() {
     audioEngine.current.registerEndedCallback(() => {
       handleTrackEndedRef.current();
     });
-  }, []);
+
+    // Audio error event: handle gracefully without hanging
+    audioEngine.current.registerErrorCallback((err) => {
+      console.warn("[App] Audio error received:", err);
+      setCurrentLyricText(language === 'ar' ? 'تعذر تشغيل الملف الصوتي' : 'Audio stream temporarily unavailable');
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+    });
+
+    // Continuous Stream: when current track is ready/canplaythrough, trigger predictive preloading
+    audioEngine.current.registerCanPlayThroughCallback(() => {
+      if (isStreamingRef.current && streamSurahRef.current) {
+        triggerNextSurahPreloadRef.current(streamSurahRef.current);
+      }
+    });
+  }, [language]);
 
   // Handle media player time ticker update
   useEffect(() => {
@@ -141,12 +160,6 @@ function AppContent() {
         // Sync lyrics for non-stream sections that have lyrics
         if (activeSourceRef.current !== 'stream' && currentSongRef.current && currentSongRef.current.lyrics && currentSongRef.current.lyrics.length > 0) {
           syncLyrics(time);
-        }
-
-        // Auto-advance or repeat playlist tracks near completion if native ended hasn't fired
-        const track = currentSongRef.current;
-        if (activeSourceRef.current !== 'stream' && track && track.duration > 2 && time >= track.duration - 0.25) {
-          handleTrackEndedRef.current();
         }
       }, 100);
     }
@@ -210,6 +223,9 @@ function AppContent() {
   };
 
   const handleStop = () => {
+    if (startTimeoutRef.current) {
+      clearTimeout(startTimeoutRef.current);
+    }
     if (isStreaming) {
       setIsStreaming(false);
       isStreamingRef.current = false;
@@ -254,45 +270,49 @@ function AppContent() {
     }, 100);
   };
 
-  // Auto-advances to the next or previous surah track in order (1-114)
-  const advanceToNextSurahTrack = async (currentTrack: Song, direction: 1 | -1 = 1) => {
-    if (isAdvancingRef.current) return;
-    isAdvancingRef.current = true;
+  // Predictively preloads the next surah's data and audio in Continuous Stream mode
+  const triggerNextSurahPreload = useCallback((currentSurahNum: number) => {
+    if (!isStreamingRef.current) return;
+    let nextSurah = currentSurahNum + 1;
+    if (nextSurah > 114) nextSurah = 1;
 
-    try {
-      const currentChapterId = currentTrack.chapterId || 1;
-      let nextSurahNum = currentChapterId + direction;
-      if (nextSurahNum > 114) nextSurahNum = 1;
-      if (nextSurahNum < 1) nextSurahNum = 114;
-
-      const reciter = STREAM_RECITERS.find(r => r.id === currentTrack.reciterId) || streamReciterRef.current || DEFAULT_RECITER;
-
-      setCurrentLyricText(t.loadingTrack);
-
-      let nextTrack: Song;
-      if (currentTrack.isQuran) {
-        nextTrack = await fetchQuranWithAyatTrack(nextSurahNum, reciter, language);
-      } else {
-        nextTrack = createRecitationTrack(nextSurahNum, reciter, language);
-      }
-
-      setSongs(prev => {
-        const updated = [...prev, nextTrack];
-        songsRef.current = updated;
-        return updated;
-      });
-
-      selectTrack(nextTrack, true);
-    } catch (err) {
-      console.error("Failed to advance surah:", err);
-    } finally {
-      setTimeout(() => {
-        isAdvancingRef.current = false;
-      }, 600);
+    let nextReciter = streamReciterRef.current;
+    if (streamReciterModeRef.current === 'shuffle') {
+      const available = STREAM_RECITERS.filter(r => r.id !== streamReciterRef.current?.id);
+      nextReciter = available[Math.floor(Math.random() * available.length)] || STREAM_RECITERS[0];
     }
-  };
+    if (!nextReciter) nextReciter = STREAM_RECITERS[0];
 
-  // Unified completion handler: handles Repeat, Shuffle, and Next Surah progression
+    // Avoid duplicate preloading if same surah and reciter already buffered
+    if (
+      preloadedStreamRef.current &&
+      preloadedStreamRef.current.surahNum === nextSurah &&
+      preloadedStreamRef.current.reciterId === nextReciter.id
+    ) {
+      return;
+    }
+
+    // Clean up previous preloaded audio if any
+    if (preloadedStreamRef.current) {
+      try {
+        preloadedStreamRef.current.audioEl.src = '';
+      } catch {
+        // ignore
+      }
+    }
+
+    const preloaded = preloadSurahTrack(nextSurah, nextReciter, (loadedDuration) => {
+      if (preloadedStreamRef.current && preloadedStreamRef.current.surahNum === nextSurah) {
+        preloadedStreamRef.current.track.duration = loadedDuration;
+      }
+    });
+
+    preloadedStreamRef.current = preloaded;
+  }, []);
+
+  triggerNextSurahPreloadRef.current = triggerNextSurahPreload;
+
+  // Unified completion handler: handles Repeat, Shuffle, and playlist / stream progression
   const handleTrackEnded = () => {
     if (isStreamingRef.current || activeSourceRef.current === 'stream') {
       if (loopRef.current) {
@@ -329,7 +349,7 @@ function AppContent() {
       return;
     }
 
-    // 3. Sequential playback (Repeat is OFF, Shuffle is OFF):
+    // 3. Sequential playback in playlist:
     const currentIdx = currentSongs.findIndex(s => s.id === currentId);
 
     // If next track exists in playlist, advance to it
@@ -338,14 +358,7 @@ function AppContent() {
       return;
     }
 
-    // If at the end of playlist (or playlist only has 1 track):
-    // If it's a Quran recitation track (has chapterId), auto-advance to next surah!
-    if (currentTrack && currentTrack.chapterId) {
-      advanceToNextSurahTrack(currentTrack, 1);
-      return;
-    }
-
-    // Default: wrap playlist
+    // End of playlist: cleanly wrap back to the first track in playlist without auto-injecting new surahs
     if (currentSongs.length > 0) {
       selectTrack(currentSongs[0], true);
     }
@@ -356,7 +369,7 @@ function AppContent() {
     handleTrackEndedRef.current = handleTrackEnded;
   });
 
-  // Continuous Stream Advance (Closed-loop: Wraps 114 -> 1 in Mushaf order with transition lock)
+  // Continuous Stream Advance (Closed-loop: Wraps 114 -> 1 in Mushaf order with preloading)
   const advanceStream = async (direction: 1 | -1 = 1) => {
     if (isAdvancingRef.current) return;
     isAdvancingRef.current = true;
@@ -385,16 +398,41 @@ function AppContent() {
       }
 
       setCurrentLyricText(t.loadingTrack);
-      const nextTrack = await fetchSurahTrack(nextSurah, nextReciter);
+
+      let nextTrack: Song;
+      // Check if this forward advance has preloaded audio ready in the background
+      if (
+        direction === 1 &&
+        preloadedStreamRef.current &&
+        preloadedStreamRef.current.surahNum === nextSurah
+      ) {
+        nextTrack = preloadedStreamRef.current.track;
+        if (preloadedStreamRef.current.reciterId) {
+          const matchedReciter = STREAM_RECITERS.find(r => r.id === preloadedStreamRef.current?.reciterId);
+          if (matchedReciter) {
+            nextReciter = matchedReciter;
+            streamReciterRef.current = matchedReciter;
+            setStreamReciter(matchedReciter);
+          }
+        }
+        preloadedStreamRef.current = null;
+      } else {
+        nextTrack = await fetchSurahTrack(nextSurah, nextReciter);
+      }
+
       setStreamTrack(nextTrack);
       selectTrack(nextTrack, true);
+
+      // Trigger preloading for the upcoming surah in background
+      setTimeout(() => {
+        triggerNextSurahPreload(nextSurah);
+      }, 800);
     } catch (err) {
       console.error("Stream advance error:", err);
     } finally {
-      // Release lock after audio starts to ensure only 1 advance occurs
       setTimeout(() => {
         isAdvancingRef.current = false;
-      }, 600);
+      }, 500);
     }
   };
 
@@ -416,12 +454,17 @@ function AppContent() {
       const streamSong = await fetchSurahTrack(startSurah, reciter);
       setStreamTrack(streamSong);
       selectTrack(streamSong, true);
+
+      // Buffer next surah in background right after starting
+      setTimeout(() => {
+        triggerNextSurahPreload(startSurah);
+      }, 1000);
     } catch (err) {
       console.error("Failed to start continuous stream:", err);
     } finally {
       setTimeout(() => {
         isAdvancingRef.current = false;
-      }, 600);
+      }, 500);
     }
   };
 
@@ -448,12 +491,7 @@ function AppContent() {
       return;
     }
 
-    const currentTrack = currentSongs.find(s => s.id === currentSongIdRef.current) || currentSongRef.current;
-    if (currentTrack && currentTrack.chapterId) {
-      advanceToNextSurahTrack(currentTrack, 1);
-      return;
-    }
-
+    // Wrap to the beginning of the playlist
     selectTrack(currentSongs[0], true);
   };
 
@@ -485,12 +523,6 @@ function AppContent() {
       return;
     }
 
-    const currentTrack = currentSongs.find(s => s.id === currentSongIdRef.current) || currentSongRef.current;
-    if (currentTrack && currentTrack.chapterId) {
-      advanceToNextSurahTrack(currentTrack, -1);
-      return;
-    }
-
     selectTrack(currentSongs[0], true);
   };
 
@@ -498,6 +530,10 @@ function AppContent() {
     if (song.id === currentSongIdRef.current && !forcePlay) {
       handlePlayPause();
       return;
+    }
+
+    if (startTimeoutRef.current) {
+      clearTimeout(startTimeoutRef.current);
     }
 
     audioEngine.current.stop();
@@ -510,12 +546,12 @@ function AppContent() {
     currentSongRef.current = song;
     setDuration(song.duration);
 
-    // Autoplay next song if player was running or if streaming or forcePlay
-    setTimeout(() => {
+    // Autoplay next song seamlessly without stale time race condition
+    startTimeoutRef.current = window.setTimeout(() => {
       audioEngine.current.start(song, 0);
       setIsPlaying(true);
       isPlayingRef.current = true;
-    }, 100);
+    }, 50);
   };
 
   const handleShuffleToggle = () => {

@@ -15,33 +15,44 @@ export function getQdcReciterId(reciter: { id: number; name?: string; nameArabic
   switch (reciter.id) {
     case 30: return 13;   // Saad Al-Ghamdi (سعد الغامدي)
     case 123: return 7;   // Mishari Rashid Alafasy (مشاري العفاسي)
+    case 51:
     case 62: return 2;    // AbdulBaset AbdulSamad (عبد الباسط عبد الصمد - مرتل)
+    case 54:
     case 65: return 3;    // Abdur-Rahman As-Sudais (عبد الرحمن السديس)
+    case 2:
     case 4: return 4;     // Abu Bakr Al-Shatri (أبو بكر الشاطري)
     case 133: return 5;   // Hani Ar-Rifai (هاني الرفاعي)
+    case 119:
     case 121: return 6;   // Mahmoud Khalil Al-Husary (محمود خليل الحصري)
+    case 106:
     case 112: return 9;   // Mohamed Siddiq Al-Minshawi (محمد صديق المنشاوي)
-    case 42: return 10;   // Sa'ud Ash-Shuraim (سعود الشريم)
+    case 31: return 10;   // Sa'ud Ash-Shuraim (سعود الشريم)
     case 60: return 11;   // Abdul Muhsin Al-Qasim (عبد المحسن القاسم)
+    case 80:
     case 87: return 14;   // Fares Abbad (فارس عباد)
     case 44: return 17;   // Sahl Yasin (سهل ياسين)
     case 50: return 18;   // Salah Bukhatir (صلاح بو خاطر)
+    case 7:
     case 8: return 19;    // Ahmed Al-Ajmy (أحمد العجمي)
+    case 42:
     case 49: return 43;   // Salah Al-Budair (صلاح البدير)
     case 125: return 88;  // Mostafa Ismaeel (مصطفى إسماعيل)
-    case 106: return 91;  // Mohammad Al-Tablawi (محمد الطبلاوي)
+    case 129:
     case 137: return 97;  // Yasser Ad-Dussary (ياسر الدوسري)
     case 102: return 159; // Maher Al Meaqli (ماهر المعيقلي)
+    case 124:
     case 128: return 104; // Nasser Al-Qatami (ناصر القطامي)
     case 73: return 124;  // Abdullah Al-Matroud (عبد الله المطرود)
     case 10: return 127;  // Akram Al-Alaqmi (أكرم العلاقمي)
-    case 129: return 129; // Mahmoud Ali Al-Banna (محمود علي البنا)
+    case 63:
     case 82: return 158;  // Ali Jaber (علي جابر)
+    case 13:
     case 18: return 160;  // Bandar Baleela (بندر بليلة)
     case 37: return 161;  // Khalifah Al Tunaiji (خليفة الطنيجي)
     case 70: return 162;  // Abdullah Awad Al-Juhani (عبد الله عواد الجهني)
     case 67: return 163;  // Abdullah Basfar (عبد الله بصفر)
     case 108: return 169; // Muhammad Jibreel (محمد جبريل)
+    case 24:
     case 36: return 170;  // Khalid Al-Jalil (خالد الجليل)
   }
 

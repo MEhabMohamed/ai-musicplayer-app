@@ -17,6 +17,8 @@ export class AudioEngine {
   public voiceAmplitude = 0.0; // Keep field for visualizer compatibility
   private durationCallback: ((duration: number) => void) | null = null;
   private endedCallback: (() => void) | null = null;
+  private errorCallback: ((error: any) => void) | null = null;
+  private canPlayThroughCallback: (() => void) | null = null;
 
   constructor() {
     // Context is initialized on user interaction
@@ -28,6 +30,14 @@ export class AudioEngine {
 
   public registerEndedCallback(cb: () => void) {
     this.endedCallback = cb;
+  }
+
+  public registerErrorCallback(cb: (error: any) => void) {
+    this.errorCallback = cb;
+  }
+
+  public registerCanPlayThroughCallback(cb: () => void) {
+    this.canPlayThroughCallback = cb;
   }
 
   public init() {
@@ -44,6 +54,7 @@ export class AudioEngine {
     // Create and configure HTML5 Audio Element
     this.audioEl = new Audio();
     this.audioEl.crossOrigin = "anonymous";
+    this.audioEl.preload = "auto";
 
     this.audioEl.addEventListener('durationchange', () => {
       if (this.audioEl && this.durationCallback) {
@@ -57,9 +68,22 @@ export class AudioEngine {
       }
     });
 
+    this.audioEl.addEventListener('canplaythrough', () => {
+      if (this.canPlayThroughCallback) {
+        this.canPlayThroughCallback();
+      }
+    });
+
     this.audioEl.addEventListener('ended', () => {
       if (this.endedCallback) {
         this.endedCallback();
+      }
+    });
+
+    this.audioEl.addEventListener('error', (e) => {
+      console.warn("[AETHERIA-AUDIO] Audio error event fired:", e, this.audioEl?.error);
+      if (this.errorCallback) {
+        this.errorCallback(this.audioEl?.error || e);
       }
     });
     
@@ -91,13 +115,20 @@ export class AudioEngine {
       this.audioEl.load();
     }
 
-    this.audioEl.currentTime = resumeFromTime;
+    try {
+      this.audioEl.currentTime = resumeFromTime;
+    } catch {
+      // ignore
+    }
     this.audioEl.volume = this.isMuted ? 0 : this.volume;
     
-    // Play with catch block in case user hasn't interacted yet
-    this.audioEl.play().catch(err => {
-      console.warn("[AETHERIA-AUDIO] Audio playback failed to start:", err);
-    });
+    // Play with catch block in case user hasn't interacted yet or source changed
+    const playPromise = this.audioEl.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        console.warn("[AETHERIA-AUDIO] Audio playback failed to start or was aborted:", err);
+      });
+    }
   }
 
   public pause() {
@@ -111,7 +142,11 @@ export class AudioEngine {
     this.isPlaying = false;
     if (this.audioEl) {
       this.audioEl.pause();
-      this.audioEl.currentTime = 0;
+      try {
+        this.audioEl.currentTime = 0;
+      } catch {
+        // ignore
+      }
     }
   }
 

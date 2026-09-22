@@ -216,9 +216,10 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({
         setLoadingMessage('Fetching audio metadata & bilingual verses...');
 
         // Direct high-quality MP3 audio from MP3Quran server
-        let audioUrl = selectedReciter.server
-          ? `${selectedReciter.server}${paddedSurah}.mp3`
-          : `https://server8.mp3quran.net/afs/${paddedSurah}.mp3`;
+        const quranServer = selectedReciter.server
+          ? (selectedReciter.server.endsWith('/') ? selectedReciter.server : `${selectedReciter.server}/`)
+          : 'https://server8.mp3quran.net/afs/';
+        let audioUrl = `${quranServer}${paddedSurah}.mp3`;
 
         let verseTimings: any[] = [];
         let apiDuration = 0;
@@ -391,9 +392,10 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({
         setLoadingProgress(null);
         setLoadingMessage('Resolving MP3 URL...');
 
-        const audioUrl = selectedReciter.server
-          ? `${selectedReciter.server}${paddedSurah}.mp3`
-          : `https://server8.mp3quran.net/afs/${paddedSurah}.mp3`;
+        const server = selectedReciter.server
+          ? (selectedReciter.server.endsWith('/') ? selectedReciter.server : `${selectedReciter.server}/`)
+          : 'https://server8.mp3quran.net/afs/';
+        const audioUrl = `${server}${paddedSurah}.mp3`;
 
         setLogs(prev => [
           ...prev,
@@ -411,7 +413,11 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({
           setTimeout(resolve, 4000); // 4s max wait for metadata
         });
 
-        const duration = tempAudio.duration || 120;
+        const surahMeta = QURAN_SURAHS.find(s => s.id === surahNum) || QURAN_SURAHS[0];
+        const estimatedDuration = Math.max(15, Math.round(surahMeta.verses * 4.5));
+        const duration = (tempAudio.duration && tempAudio.duration > 0 && tempAudio.duration !== Infinity)
+          ? tempAudio.duration 
+          : estimatedDuration;
 
         setLogs(prev => [
           ...prev,
