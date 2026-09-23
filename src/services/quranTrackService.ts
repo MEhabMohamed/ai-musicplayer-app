@@ -1,6 +1,7 @@
 import { QURAN_SURAHS } from '../data/quranMetadata';
 import { getQdcReciterId, type ReciterItem } from '../data/allReciters';
 import type { Song, LyricsLine } from '../types/music';
+import { getValidReciterForSurah, getSurahFallbackUrls } from '../components/ContinuousStream';
 
 /**
  * Creates a track for Recitation Only mode instantly.
@@ -11,16 +12,18 @@ export function createRecitationTrack(
   reciter: ReciterItem,
   language: 'en' | 'ar' = 'en'
 ): Song {
+  const validReciter = getValidReciterForSurah(reciter, surahNum);
   const surahMeta = QURAN_SURAHS.find(s => s.id === surahNum) || QURAN_SURAHS[0];
   const paddedSurah = String(surahNum).padStart(3, '0');
-  const server = reciter.server
-    ? (reciter.server.endsWith('/') ? reciter.server : `${reciter.server}/`)
+  const server = validReciter.server
+    ? (validReciter.server.endsWith('/') ? validReciter.server : `${validReciter.server}/`)
     : 'https://server8.mp3quran.net/afs/';
   const audioUrl = `${server}${paddedSurah}.mp3`;
+  const fallbackUrls = getSurahFallbackUrls(surahNum, audioUrl);
 
   const reciterDisplayName = language === 'ar'
-    ? (reciter.nameArabic || reciter.name)
-    : (reciter.name || reciter.nameArabic);
+    ? (validReciter.nameArabic || validReciter.name)
+    : (validReciter.name || validReciter.nameArabic);
 
   // Initial estimate proportional to verse count; true audio duration is resolved on loadedmetadata
   const estimatedDuration = Math.max(15, Math.round(surahMeta.verses * 4.5));
@@ -37,8 +40,9 @@ export function createRecitationTrack(
     seed: Math.random(),
     duration: estimatedDuration,
     audioUrl,
+    fallbackUrls,
     chapterId: surahNum,
-    reciterId: reciter.id,
+    reciterId: validReciter.id,
     isRecitationOnly: true
   };
 }
@@ -166,6 +170,7 @@ export async function fetchQuranWithAyatTrack(
     seed: Math.random(),
     duration,
     audioUrl,
+    fallbackUrls: getSurahFallbackUrls(surahNum, audioUrl),
     chapterId: surahNum,
     reciterId: reciter.id,
     isQuran: true

@@ -24,6 +24,7 @@ export interface Song {
   duration: number; // total duration in seconds
   isCustom?: boolean;
   audioUrl?: string;
+  fallbackUrls?: string[];
   isStreamTrack?: boolean;
   chapterId?: number;
   reciterId?: number;

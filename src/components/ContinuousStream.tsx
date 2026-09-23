@@ -25,23 +25,62 @@ export interface PreloadedTrackData {
   reciterId: number;
 }
 
-export function buildSurahAudioUrl(surahNum: number, reciter: StreamReciter): string {
+export function reciterHasSurah(reciter: StreamReciter, surahNum: number): boolean {
+  if (!reciter) return false;
+  if (reciter.surahList) {
+    const list = reciter.surahList.split(',').map(s => parseInt(s.trim(), 10));
+    return list.includes(surahNum);
+  }
+  return reciter.surahTotal === 114;
+}
+
+export function getValidReciterForSurah(preferredReciter: StreamReciter, surahNum: number): StreamReciter {
+  if (reciterHasSurah(preferredReciter, surahNum)) {
+    return preferredReciter;
+  }
+  // Fall back to complete reciters that have all 114 surahs
+  const ghamdi = ALL_RECITERS.find(r => r.id === 30);
+  if (ghamdi && reciterHasSurah(ghamdi, surahNum)) return ghamdi;
+
+  const alafasy = ALL_RECITERS.find(r => r.id === 123);
+  if (alafasy && reciterHasSurah(alafasy, surahNum)) return alafasy;
+
+  const anyComplete = ALL_RECITERS.find(r => r.surahTotal === 114);
+  return anyComplete || preferredReciter;
+}
+
+export function getSurahFallbackUrls(surahNum: number, primaryUrl?: string): string[] {
   const paddedSurah = String(surahNum).padStart(3, '0');
-  const server = reciter.server
-    ? (reciter.server.endsWith('/') ? reciter.server : `${reciter.server}/`)
+  const candidates = [
+    `https://server7.mp3quran.net/s_gmd/${paddedSurah}.mp3`,
+    `https://server8.mp3quran.net/afs/${paddedSurah}.mp3`,
+    `https://server10.mp3quran.net/minsh/${paddedSurah}.mp3`,
+    `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${paddedSurah}.mp3`,
+    `https://server6.mp3quran.net/akdr/${paddedSurah}.mp3`
+  ];
+  return candidates.filter(url => url !== primaryUrl);
+}
+
+export function buildSurahAudioUrl(surahNum: number, reciter: StreamReciter): string {
+  const validReciter = getValidReciterForSurah(reciter, surahNum);
+  const paddedSurah = String(surahNum).padStart(3, '0');
+  const server = validReciter.server
+    ? (validReciter.server.endsWith('/') ? validReciter.server : `${validReciter.server}/`)
     : 'https://server8.mp3quran.net/afs/';
   return `${server}${paddedSurah}.mp3`;
 }
 
 export async function fetchSurahTrack(surahNum: number, reciter: StreamReciter): Promise<Song> {
+  const validReciter = getValidReciterForSurah(reciter, surahNum);
   const surahMeta = QURAN_SURAHS.find(s => s.id === surahNum) || QURAN_SURAHS[0];
-  const audioUrl = buildSurahAudioUrl(surahNum, reciter);
+  const audioUrl = buildSurahAudioUrl(surahNum, validReciter);
+  const fallbackUrls = getSurahFallbackUrls(surahNum, audioUrl);
   const estimatedDuration = Math.max(15, Math.round(surahMeta.verses * 4.5));
 
   return {
     id: `stream-surah-${surahNum}-${Date.now()}`,
     title: `Surah ${surahMeta.id}. ${surahMeta.name} (${surahMeta.nameArabic})`,
-    artist: reciter.nameArabic ? `${reciter.nameArabic} (${reciter.name})` : reciter.name,
+    artist: validReciter.nameArabic ? `${validReciter.nameArabic} (${validReciter.name})` : validReciter.name,
     genre: 'cozy',
     tempo: 60,
     key: 'C',
@@ -50,29 +89,33 @@ export async function fetchSurahTrack(surahNum: number, reciter: StreamReciter):
     seed: Math.random(),
     duration: estimatedDuration,
     audioUrl,
+    fallbackUrls,
     isStreamTrack: true,
     chapterId: surahNum,
-    reciterId: reciter.id
+    reciterId: validReciter.id
   };
 }
 
 /**
  * Predictively preloads the next surah's audio in the background.
  * Buffers audio data and resolves exact duration before the track starts playing.
+ * Automatically tries fallback URLs if the primary URL fails to load.
  */
 export function preloadSurahTrack(
   surahNum: number, 
   reciter: StreamReciter,
   onMetadataLoaded?: (duration: number) => void
 ): PreloadedTrackData {
+  const validReciter = getValidReciterForSurah(reciter, surahNum);
   const surahMeta = QURAN_SURAHS.find(s => s.id === surahNum) || QURAN_SURAHS[0];
-  const audioUrl = buildSurahAudioUrl(surahNum, reciter);
+  const audioUrl = buildSurahAudioUrl(surahNum, validReciter);
+  const fallbackUrls = getSurahFallbackUrls(surahNum, audioUrl);
   const estimatedDuration = Math.max(15, Math.round(surahMeta.verses * 4.5));
 
   const track: Song = {
     id: `stream-surah-${surahNum}-${Date.now()}`,
     title: `Surah ${surahMeta.id}. ${surahMeta.name} (${surahMeta.nameArabic})`,
-    artist: reciter.nameArabic ? `${reciter.nameArabic} (${reciter.name})` : reciter.name,
+    artist: validReciter.nameArabic ? `${validReciter.nameArabic} (${validReciter.name})` : validReciter.name,
     genre: 'cozy',
     tempo: 60,
     key: 'C',
@@ -81,15 +124,26 @@ export function preloadSurahTrack(
     seed: Math.random(),
     duration: estimatedDuration,
     audioUrl,
+    fallbackUrls,
     isStreamTrack: true,
     chapterId: surahNum,
-    reciterId: reciter.id
+    reciterId: validReciter.id
   };
 
   const audioEl = new Audio();
   audioEl.crossOrigin = "anonymous";
   audioEl.preload = "auto";
   audioEl.src = audioUrl;
+
+  let fallbackIdx = 0;
+  const tryNextPreloadFallback = () => {
+    if (fallbackIdx < fallbackUrls.length) {
+      const nextUrl = fallbackUrls[fallbackIdx++];
+      track.audioUrl = nextUrl;
+      audioEl.src = nextUrl;
+      audioEl.load();
+    }
+  };
 
   audioEl.addEventListener('loadedmetadata', () => {
     if (audioEl.duration && audioEl.duration > 0 && audioEl.duration !== Infinity) {
@@ -98,7 +152,11 @@ export function preloadSurahTrack(
         onMetadataLoaded(audioEl.duration);
       }
     }
-  }, { once: true });
+  });
+
+  audioEl.addEventListener('error', () => {
+    tryNextPreloadFallback();
+  });
 
   audioEl.load();
 
@@ -106,7 +164,7 @@ export function preloadSurahTrack(
     track,
     audioEl,
     surahNum,
-    reciterId: reciter.id
+    reciterId: validReciter.id
   };
 }
 

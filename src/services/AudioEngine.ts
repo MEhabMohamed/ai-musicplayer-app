@@ -13,6 +13,7 @@ export class AudioEngine {
   public isPlaying = false;
   private isMuted = false;
   private volume = 0.8;
+  private currentFallbackIndex = 0;
   
   public voiceAmplitude = 0.0; // Keep field for visualizer compatibility
   private durationCallback: ((duration: number) => void) | null = null;
@@ -81,7 +82,10 @@ export class AudioEngine {
     });
 
     this.audioEl.addEventListener('error', (e) => {
-      console.warn("[AETHERIA-AUDIO] Audio error event fired:", e, this.audioEl?.error);
+      console.warn("[AETHERIA-AUDIO] Audio error event fired on:", this.audioEl?.src, e, this.audioEl?.error);
+      if (this.tryFallback()) {
+        return;
+      }
       if (this.errorCallback) {
         this.errorCallback(this.audioEl?.error || e);
       }
@@ -92,6 +96,21 @@ export class AudioEngine {
     this.sourceNode.connect(this.analyser);
     this.analyser.connect(this.masterGain);
     this.masterGain.connect(this.ctx.destination);
+  }
+
+  private tryFallback(): boolean {
+    if (!this.audioEl || !this.currentSong?.fallbackUrls) return false;
+    if (this.currentFallbackIndex >= this.currentSong.fallbackUrls.length) return false;
+
+    const nextUrl = this.currentSong.fallbackUrls[this.currentFallbackIndex++];
+    console.warn(`[AETHERIA-AUDIO] Attempting audio fallback (${this.currentFallbackIndex}/${this.currentSong.fallbackUrls.length}): ${nextUrl}`);
+    this.audioEl.src = nextUrl;
+    this.audioEl.load();
+    this.audioEl.play().catch(err => {
+      console.warn("[AETHERIA-AUDIO] Fallback play error:", err);
+      this.tryFallback();
+    });
+    return true;
   }
 
   public getAnalyser(): AnalyserNode | null {
@@ -108,9 +127,10 @@ export class AudioEngine {
 
     this.isPlaying = true;
     this.currentSong = song;
+    this.currentFallbackIndex = 0;
 
     // Only load source if it has changed or is empty
-    if (song.audioUrl && this.audioEl.src !== song.audioUrl) {
+    if (song.audioUrl && this.audioEl.src !== song.audioUrl && this.audioEl.currentSrc !== song.audioUrl) {
       this.audioEl.src = song.audioUrl;
       this.audioEl.load();
     }
@@ -127,6 +147,9 @@ export class AudioEngine {
     if (playPromise !== undefined) {
       playPromise.catch(err => {
         console.warn("[AETHERIA-AUDIO] Audio playback failed to start or was aborted:", err);
+        if (this.currentSong?.fallbackUrls && this.currentFallbackIndex < this.currentSong.fallbackUrls.length) {
+          this.tryFallback();
+        }
       });
     }
   }
