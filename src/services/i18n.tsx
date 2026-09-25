@@ -118,8 +118,8 @@ export interface Translations {
 
 const translations: Record<Language, Translations> = {
   en: {
-    appTitle: "My Audio Player",
-    appSubtitle: "Stream & Media Player Console",
+    appTitle: "Quran with verses",
+    appSubtitle: "Holy Quran Recitation & Streaming Console",
     languageName: "English",
     switchToLang: "العربية",
     themeMushaf: "Emerald Mushaf",
