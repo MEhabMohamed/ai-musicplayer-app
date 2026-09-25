@@ -19,7 +19,7 @@ export function createRecitationTrack(
     ? (validReciter.server.endsWith('/') ? validReciter.server : `${validReciter.server}/`)
     : 'https://server8.mp3quran.net/afs/';
   const audioUrl = `${server}${paddedSurah}.mp3`;
-  const fallbackUrls = getSurahFallbackUrls(surahNum, audioUrl);
+  const fallbackUrls = getSurahFallbackUrls(surahNum, audioUrl, validReciter);
 
   const reciterDisplayName = language === 'ar'
     ? (validReciter.nameArabic || validReciter.name)
@@ -170,7 +170,7 @@ export async function fetchQuranWithAyatTrack(
     seed: Math.random(),
     duration,
     audioUrl,
-    fallbackUrls: getSurahFallbackUrls(surahNum, audioUrl),
+    fallbackUrls: getSurahFallbackUrls(surahNum, audioUrl, reciter),
     chapterId: surahNum,
     reciterId: reciter.id,
     isQuran: true

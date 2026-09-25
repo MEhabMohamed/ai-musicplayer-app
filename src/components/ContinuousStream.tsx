@@ -49,16 +49,46 @@ export function getValidReciterForSurah(preferredReciter: StreamReciter, surahNu
   return anyComplete || preferredReciter;
 }
 
-export function getSurahFallbackUrls(surahNum: number, primaryUrl?: string): string[] {
+export function getSurahFallbackUrls(surahNum: number, primaryUrl?: string, reciter?: StreamReciter): string[] {
+  if (!primaryUrl) return [];
+  const fallbacks: string[] = [];
   const paddedSurah = String(surahNum).padStart(3, '0');
-  const candidates = [
-    `https://server7.mp3quran.net/s_gmd/${paddedSurah}.mp3`,
-    `https://server8.mp3quran.net/afs/${paddedSurah}.mp3`,
-    `https://server10.mp3quran.net/minsh/${paddedSurah}.mp3`,
-    `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${paddedSurah}.mp3`,
-    `https://server6.mp3quran.net/akdr/${paddedSurah}.mp3`
-  ];
-  return candidates.filter(url => url !== primaryUrl);
+
+  // 1. If reciter has known reliable mirrors of THE SAME RECITER:
+  if (reciter) {
+    const recName = (reciter.name || '').toLowerCase();
+    const serverUrl = reciter.server || '';
+
+    // Mishary Alafasy mirror on quranicaudio
+    if (reciter.id === 123 || recName.includes('alafasy') || serverUrl.includes('/afs/')) {
+      fallbacks.push(`https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${paddedSurah}.mp3`);
+    }
+    // Saad Al-Ghamdi mirror on quranicaudio
+    if (reciter.id === 30 || recName.includes('ghamdi') || serverUrl.includes('/s_gmd/')) {
+      fallbacks.push(`https://download.quranicaudio.com/quran/sa3d_al-ghaamidee/complete/${paddedSurah}.mp3`);
+    }
+    // Minshawi Mojawwad / Murattal mirrors on quranicaudio
+    if (reciter.id === 106 || reciter.id === 112 || recName.includes('minshawi')) {
+      fallbacks.push(`https://download.quranicaudio.com/quran/muhammad_siddeeq_al-minshaawee/${paddedSurah}.mp3`);
+    }
+    // Al-Husary mirror on quranicaudio
+    if (reciter.id === 118 || reciter.id === 119 || recName.includes('hussary') || recName.includes('husary')) {
+      fallbacks.push(`https://download.quranicaudio.com/quran/mahmood_khaleel_al-husaree_iza3ah/${paddedSurah}.mp3`);
+    }
+    // AbdulBaset Murattal mirror on quranicaudio
+    if (reciter.id === 51 || reciter.id === 62 || recName.includes('abdulbaset') || recName.includes('basit')) {
+      fallbacks.push(`https://download.quranicaudio.com/quran/abdul_baasit_murattal/${paddedSurah}.mp3`);
+    }
+  }
+
+  // 2. Retry URLs for the EXACT SAME audio file with cache-busting/query params
+  // This bypasses any corrupted partial byte-range cached responses in the browser/proxy
+  const sep = primaryUrl.includes('?') ? '&' : '?';
+  fallbacks.push(`${primaryUrl}${sep}retry=1`);
+  fallbacks.push(`${primaryUrl}${sep}retry=2`);
+
+  // Under NO circumstance include any other reciter!
+  return fallbacks.filter(url => url !== primaryUrl);
 }
 
 export function buildSurahAudioUrl(surahNum: number, reciter: StreamReciter): string {
@@ -74,7 +104,7 @@ export async function fetchSurahTrack(surahNum: number, reciter: StreamReciter):
   const validReciter = getValidReciterForSurah(reciter, surahNum);
   const surahMeta = QURAN_SURAHS.find(s => s.id === surahNum) || QURAN_SURAHS[0];
   const audioUrl = buildSurahAudioUrl(surahNum, validReciter);
-  const fallbackUrls = getSurahFallbackUrls(surahNum, audioUrl);
+  const fallbackUrls = getSurahFallbackUrls(surahNum, audioUrl, validReciter);
   const estimatedDuration = Math.max(15, Math.round(surahMeta.verses * 4.5));
 
   return {
@@ -109,7 +139,7 @@ export function preloadSurahTrack(
   const validReciter = getValidReciterForSurah(reciter, surahNum);
   const surahMeta = QURAN_SURAHS.find(s => s.id === surahNum) || QURAN_SURAHS[0];
   const audioUrl = buildSurahAudioUrl(surahNum, validReciter);
-  const fallbackUrls = getSurahFallbackUrls(surahNum, audioUrl);
+  const fallbackUrls = getSurahFallbackUrls(surahNum, audioUrl, validReciter);
   const estimatedDuration = Math.max(15, Math.round(surahMeta.verses * 4.5));
 
   const track: Song = {

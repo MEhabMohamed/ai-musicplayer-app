@@ -1,9 +1,10 @@
 import React from 'react';
 import { 
   Play, Pause, Square, SkipForward, SkipBack, 
-  Volume2, VolumeX, Shuffle, Repeat
+  Volume2, VolumeX, Shuffle, Repeat, Repeat1
 } from 'lucide-react';
 import { useLanguage } from '../services/i18n';
+import type { RepeatMode } from './PlaylistManager';
 
 interface MediaControlsProps {
   isPlaying: boolean;
@@ -12,7 +13,7 @@ interface MediaControlsProps {
   currentTime: number;
   duration: number;
   shuffle: boolean;
-  loop: boolean;
+  repeatMode: RepeatMode;
   
   // Handlers
   onPlayPause: () => void;
@@ -23,7 +24,8 @@ interface MediaControlsProps {
   onVolumeChange: (vol: number) => void;
   onMuteToggle: () => void;
   onShuffleToggle: () => void;
-  onLoopToggle: () => void;
+  onRepeatOneToggle: () => void;
+  onRepeatAllToggle: () => void;
 }
 
 export const MediaControls: React.FC<MediaControlsProps> = ({
@@ -33,7 +35,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
   currentTime,
   duration,
   shuffle,
-  loop,
+  repeatMode,
   onPlayPause,
   onStop,
   onNext,
@@ -42,7 +44,8 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
   onVolumeChange,
   onMuteToggle,
   onShuffleToggle,
-  onLoopToggle
+  onRepeatOneToggle,
+  onRepeatAllToggle
 }) => {
   const { t } = useLanguage();
 
@@ -84,26 +87,39 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
       </div>
 
       {/* Deck button controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-1">
-        {/* Playback Shuffle / Loop toggles */}
-        <div className="flex items-center gap-2" id="play-mode-modifiers">
+      <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 sm:gap-4 mt-1 w-full">
+        {/* Playback Shuffle / Repeat toggles */}
+        <div className="flex items-center gap-1.5 order-2 sm:order-1" id="play-mode-modifiers">
           <button
             onClick={onShuffleToggle}
             id="btn-shuffle"
             title={t.btnShuffle}
-            className={`p-2 rounded-lg transition-all ${
+            className={`p-2 rounded-lg transition-all cursor-pointer ${
               shuffle ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
           >
             <Shuffle className="w-4 h-4" />
           </button>
           
+          {/* Repeat Current Only */}
           <button
-            onClick={onLoopToggle}
-            id="btn-loop"
-            title={t.btnLoop}
-            className={`p-2 rounded-lg transition-all ${
-              loop ? 'btn-active shadow-sm' : 'btn-inactive'
+            onClick={onRepeatOneToggle}
+            id="btn-loop-one"
+            title={t.btnRepeatOne}
+            className={`p-2 rounded-lg transition-all cursor-pointer ${
+              repeatMode === 'one' ? 'btn-active shadow-sm' : 'btn-inactive'
+            }`}
+          >
+            <Repeat1 className="w-4 h-4" />
+          </button>
+
+          {/* Repeat Entire Playlist */}
+          <button
+            onClick={onRepeatAllToggle}
+            id="btn-loop-all"
+            title={t.btnRepeatAll}
+            className={`p-2 rounded-lg transition-all cursor-pointer ${
+              repeatMode === 'all' ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
           >
             <Repeat className="w-4 h-4" />
@@ -111,7 +127,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
         </div>
 
         {/* Primary Controls: Prev, Play/Pause, Stop, Next */}
-        <div className="flex items-center gap-3" id="playback-controls-deck">
+        <div className="flex items-center gap-2.5 sm:gap-3 order-1 sm:order-2 mx-auto sm:mx-0" id="playback-controls-deck">
           <button
             onClick={onPrev}
             id="btn-prev"
@@ -154,12 +170,12 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
         </div>
 
         {/* Volume HUD dial */}
-        <div className="flex items-center gap-2" id="volume-control-hud">
+        <div className="flex items-center gap-1.5 sm:gap-2 order-3 ml-auto sm:ml-0" id="volume-control-hud">
           <button
             onClick={onMuteToggle}
             id="btn-mute-toggle"
             title={isMuted ? t.btnUnmute : t.btnMute}
-            className={`p-2 transition-all rounded-lg ${
+            className={`p-2 transition-all rounded-lg cursor-pointer ${
               isMuted ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
           >
@@ -177,7 +193,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
             step="0.01"
             value={isMuted ? 0 : volume}
             onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-            className="w-20 h-1.5 rounded-full appearance-none bg-[var(--bg-panel)] accent-[var(--accent-primary)] cursor-pointer w-24 sm:w-20"
+            className="h-1.5 rounded-full appearance-none bg-[var(--bg-panel)] accent-[var(--accent-primary)] cursor-pointer w-16 sm:w-20"
             id="volume-slider-hud"
             title={t.volumeLabel}
           />

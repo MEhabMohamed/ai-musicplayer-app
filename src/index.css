@@ -1067,3 +1067,27 @@ html[dir="rtl"] .text-right {
   background-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Mobile Alignment Polish */
+@media (max-width: 768px) {
+  body {
+    overflow-y: auto !important;
+    height: auto !important;
+    min-height: 100vh;
+  }
+  #root {
+    height: auto !important;
+    min-height: 100vh;
+    overflow-y: visible !important;
+  }
+}
+

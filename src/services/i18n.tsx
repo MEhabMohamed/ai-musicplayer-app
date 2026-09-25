@@ -111,6 +111,9 @@ export interface Translations {
   btnNext: string;
   btnShuffle: string;
   btnLoop: string;
+  btnRepeatOne: string;
+  btnRepeatAll: string;
+  playlistFinished: string;
   btnMute: string;
   btnUnmute: string;
   volumeLabel: string;
@@ -217,6 +220,9 @@ const translations: Record<Language, Translations> = {
     btnNext: "Next Track",
     btnShuffle: "Toggle Shuffle",
     btnLoop: "Toggle Repeat",
+    btnRepeatOne: "Repeat Current Playing",
+    btnRepeatAll: "Repeat Entire Playlist",
+    playlistFinished: "Playlist Finished",
     btnMute: "Mute",
     btnUnmute: "Unmute",
     volumeLabel: "Volume"
@@ -321,6 +327,9 @@ const translations: Record<Language, Translations> = {
     btnNext: "المقطع التالي",
     btnShuffle: "تبديل الترتيب العشوائي",
     btnLoop: "تبديل التكرار",
+    btnRepeatOne: "تكرار المقطع الحالي",
+    btnRepeatAll: "تكرار القائمة بالكامل",
+    playlistFinished: "اكتمل تشغيل القائمة",
     btnMute: "كتم الصوت",
     btnUnmute: "إلغاء الكتم",
     volumeLabel: "مستوى الصوت"

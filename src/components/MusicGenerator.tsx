@@ -481,45 +481,45 @@ export const MusicGenerator: React.FC<MusicGeneratorProps> = ({
       </div>
 
       {/* Source choosing selector */}
-      <div className="flex flex-wrap justify-center gap-2 mb-1" id="search-source-selector">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-2 mb-1 w-full" id="search-source-selector">
         <button
           type="button"
           onClick={() => selectSource('quran')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${searchSource === 'quran' ? 'btn-active shadow-sm' : 'btn-inactive'
+          className={`flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold uppercase transition-all cursor-pointer ${searchSource === 'quran' ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
         >
-          <BookOpen className="w-3.5 h-3.5 mr-1" />
-          {t.tabQuran}
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>{t.tabQuran}</span>
         </button>
         <button
           type="button"
           onClick={() => selectSource('recitation')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${searchSource === 'recitation' ? 'btn-active shadow-sm' : 'btn-inactive'
+          className={`flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold uppercase transition-all cursor-pointer ${searchSource === 'recitation' ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
           id="source-btn-recitation"
         >
-          <AudioLines className="w-3.5 h-3.5 mr-1" />
-          {t.tabRecitation}
+          <AudioLines className="w-3.5 h-3.5" />
+          <span>{t.tabRecitation}</span>
         </button>
         <button
           type="button"
           onClick={() => selectSource('pages')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${searchSource === 'pages' ? 'btn-active shadow-sm' : 'btn-inactive'
+          className={`flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold uppercase transition-all cursor-pointer ${searchSource === 'pages' ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
           id="source-btn-pages"
         >
-          <Book className="w-3.5 h-3.5 mr-1" />
-          {t.tabPages}
+          <Book className="w-3.5 h-3.5" />
+          <span>{t.tabPages}</span>
         </button>
         <button
           type="button"
           onClick={() => selectSource('stream')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase transition-all ${searchSource === 'stream' ? 'btn-active shadow-sm' : 'btn-inactive'
+          className={`flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold uppercase transition-all cursor-pointer ${searchSource === 'stream' ? 'btn-active shadow-sm' : 'btn-inactive'
             }`}
           id="source-btn-stream"
         >
-          <Radio className="w-3.5 h-3.5 mr-1 animate-pulse" />
-          {t.tabStream}
+          <Radio className="w-3.5 h-3.5 animate-pulse" />
+          <span>{t.tabStream}</span>
         </button>
       </div>
 

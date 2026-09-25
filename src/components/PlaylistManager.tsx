@@ -1,12 +1,16 @@
 import React from 'react';
 import type { Song } from '../types/music';
-import { Play, X, ListMusic } from 'lucide-react';
+import { Play, X, ListMusic, Repeat, Repeat1 } from 'lucide-react';
 import { useLanguage } from '../services/i18n';
+
+export type RepeatMode = 'none' | 'one' | 'all';
 
 interface PlaylistManagerProps {
   songs: Song[];
   currentSong: Song | null;
   isPlaying: boolean;
+  repeatMode: RepeatMode;
+  onSetRepeatMode: (mode: RepeatMode) => void;
   onSelectSong: (song: Song) => void;
   onRemoveSong: (songId: string) => void;
 }
@@ -15,10 +19,12 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
   songs,
   currentSong,
   isPlaying,
+  repeatMode,
+  onSetRepeatMode,
   onSelectSong,
   onRemoveSong
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   // Format seconds to MM:SS
   const formatTime = (secs: number) => {
@@ -29,10 +35,48 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
 
   return (
     <div className="w-full h-full flex flex-col gap-3 min-h-[220px]">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap pb-1 border-b border-[var(--border-color)]/30">
         <div className="flex items-center gap-2">
           <ListMusic className="w-5 h-5 text-[var(--accent-secondary)]" />
           <h2 className="text-md font-bold uppercase tracking-wider">{t.playlistTitle}</h2>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/30 border border-[var(--border-color)] text-theme-muted">
+            {songs.length}
+          </span>
+        </div>
+
+        {/* Two Repeating Functionality Buttons: Repeat One and Repeat All */}
+        <div className="flex items-center gap-1.5" id="playlist-repeat-actions">
+          {/* Button 1: Repeat Current Playing Track */}
+          <button
+            type="button"
+            id="btn-playlist-repeat-one"
+            onClick={() => onSetRepeatMode(repeatMode === 'one' ? 'none' : 'one')}
+            title={t.btnRepeatOne}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+              repeatMode === 'one'
+                ? 'btn-active shadow-sm border-[var(--accent-primary)]'
+                : 'bg-[var(--bg-panel)] border-[var(--border-color)] text-theme-muted hover:text-theme-primary hover:border-[var(--accent-secondary)]'
+            }`}
+          >
+            <Repeat1 className="w-3.5 h-3.5" />
+            <span className="text-[11px]">{language === 'ar' ? 'المقطع' : 'One'}</span>
+          </button>
+
+          {/* Button 2: Repeat Entire Playlist */}
+          <button
+            type="button"
+            id="btn-playlist-repeat-all"
+            onClick={() => onSetRepeatMode(repeatMode === 'all' ? 'none' : 'all')}
+            title={t.btnRepeatAll}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+              repeatMode === 'all'
+                ? 'btn-active shadow-sm border-[var(--accent-primary)]'
+                : 'bg-[var(--bg-panel)] border-[var(--border-color)] text-theme-muted hover:text-theme-primary hover:border-[var(--accent-secondary)]'
+            }`}
+          >
+            <Repeat className="w-3.5 h-3.5" />
+            <span className="text-[11px]">{language === 'ar' ? 'الكل' : 'All'}</span>
+          </button>
         </div>
       </div>
 

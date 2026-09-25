@@ -1,17 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Song, ThemeId } from './types/music';
 import { AudioEngine } from './services/AudioEngine';
 import { SongTicker } from './components/SongTicker';
 import { MusicGenerator, type SearchSource } from './components/MusicGenerator';
-import { PlaylistManager } from './components/PlaylistManager';
+import { PlaylistManager, type RepeatMode } from './components/PlaylistManager';
 import { MediaControls } from './components/MediaControls';
 import { Radio, Languages, RotateCw, User, SkipForward, Sparkles } from 'lucide-react';
 import { LanguageProvider, useLanguage } from './services/i18n';
 import { QURAN_SURAHS } from './data/quranMetadata';
 import { 
   fetchSurahTrack, 
-  preloadSurahTrack,
-  type PreloadedTrackData,
   STREAM_RECITERS, 
   type StreamReciter,
   reciterHasSurah,
@@ -41,14 +39,14 @@ function AppContent() {
   const isStreamingRef = useRef(false);
   const activeSourceRef = useRef<SearchSource>('quran');
   const streamReciterRef = useRef<StreamReciter | null>(DEFAULT_RECITER);
+  const streamChosenReciterRef = useRef<StreamReciter | null>(DEFAULT_RECITER);
   const streamReciterModeRef = useRef<'single' | 'shuffle'>('single');
   const songsRef = useRef<Song[]>([]);
   const currentSongIdRef = useRef<string | null>(null);
   const currentSongRef = useRef<Song | null>(null);
-  const loopRef = useRef<boolean>(false);
+  const repeatModeRef = useRef<RepeatMode>('none');
   const shuffleRef = useRef<boolean>(false);
   const isPlayingRef = useRef<boolean>(false);
-  const preloadedStreamRef = useRef<PreloadedTrackData | null>(null);
   const startTimeoutRef = useRef<number | null>(null);
 
   // Player state
@@ -59,7 +57,7 @@ function AppContent() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [shuffle, setShuffle] = useState(false);
-  const [loop, setLoop] = useState(false);
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>('none');
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -84,8 +82,8 @@ function AppContent() {
     currentSongIdRef.current = currentSongId;
   }, [currentSongId]);
   useEffect(() => {
-    loopRef.current = loop;
-  }, [loop]);
+    repeatModeRef.current = repeatMode;
+  }, [repeatMode]);
   useEffect(() => {
     shuffleRef.current = shuffle;
   }, [shuffle]);
@@ -110,7 +108,6 @@ function AppContent() {
   }, [activeTheme]);
 
   const handleTrackEndedRef = useRef<() => void>(() => {});
-  const triggerNextSurahPreloadRef = useRef<(surah: number) => void>(() => {});
   const advanceStreamRef = useRef<(direction?: 1 | -1) => void>(() => {});
 
   // Register dynamic duration and lifecycle listeners on mount to resolve true durations of tracks
@@ -136,31 +133,36 @@ function AppContent() {
       handleTrackEndedRef.current();
     });
 
-    // Audio error event: handle gracefully without hanging
+    // Stream buffering listener: keep user informed while waiting for network audio data
+    audioEngine.current.registerBufferingCallback((isBuffering) => {
+      if (isBuffering && isStreamingRef.current) {
+        setCurrentLyricText(
+          language === 'ar' 
+            ? 'جاري التحميل والمزامنة...' 
+            : 'Buffering recitation...'
+        );
+      }
+    });
+
+    // Audio error event: handle gracefully without prematurely skipping surahs or restarting from 0
     audioEngine.current.registerErrorCallback((err) => {
       console.warn("[App] Audio error received:", err);
       if (isStreamingRef.current) {
         setCurrentLyricText(
           language === 'ar' 
-            ? 'تعذر تشغيل الملف الصوتي، جاري الانتقال للسورة التالية...' 
-            : 'Audio temporarily unavailable, skipping to next surah...'
+            ? 'جاري انتظار تحميل الصوت...' 
+            : 'Waiting for stream connection...'
         );
+        const curTime = audioEngine.current.getCurrentTime();
         setTimeout(() => {
-          if (isStreamingRef.current) {
-            advanceStreamRef.current(1);
+          if (isStreamingRef.current && currentSongRef.current) {
+            audioEngine.current.start(currentSongRef.current, curTime);
           }
-        }, 2000);
+        }, 1500);
       } else {
         setCurrentLyricText(language === 'ar' ? 'تعذر تشغيل الملف الصوتي' : 'Audio stream temporarily unavailable');
         setIsPlaying(false);
         isPlayingRef.current = false;
-      }
-    });
-
-    // Continuous Stream: when current track is ready/canplaythrough, trigger predictive preloading
-    audioEngine.current.registerCanPlayThroughCallback(() => {
-      if (isStreamingRef.current && streamSurahRef.current) {
-        triggerNextSurahPreloadRef.current(streamSurahRef.current);
       }
     });
   }, [language]);
@@ -180,7 +182,7 @@ function AppContent() {
       }, 100);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, currentSongId, songs, shuffle, loop, duration, isStreaming, streamSurah, streamReciterMode, streamReciter, streamTrack]);
+  }, [isPlaying, currentSongId, songs, shuffle, repeatMode, duration, isStreaming, streamSurah, streamReciterMode, streamReciter, streamTrack]);
 
   // Sync lyrics with play timestamps
   const syncLyrics = (time: number) => {
@@ -286,58 +288,18 @@ function AppContent() {
     }, 100);
   };
 
-  // Predictively preloads the next surah's data and audio in Continuous Stream mode
-  const triggerNextSurahPreload = useCallback((currentSurahNum: number) => {
-    if (!isStreamingRef.current) return;
-    let nextSurah = currentSurahNum + 1;
-    if (nextSurah > 114) nextSurah = 1;
-
-    let nextReciter = streamReciterRef.current;
-    if (streamReciterModeRef.current === 'shuffle') {
-      const available = STREAM_RECITERS.filter(r => r.id !== streamReciterRef.current?.id && reciterHasSurah(r, nextSurah));
-      nextReciter = available[Math.floor(Math.random() * available.length)] || STREAM_RECITERS[0];
-    }
-    if (!nextReciter || !reciterHasSurah(nextReciter, nextSurah)) {
-      nextReciter = getValidReciterForSurah(nextReciter || STREAM_RECITERS[0], nextSurah);
-    }
-
-    // Avoid duplicate preloading if same surah and reciter already buffered without errors
-    if (
-      preloadedStreamRef.current &&
-      preloadedStreamRef.current.surahNum === nextSurah &&
-      preloadedStreamRef.current.reciterId === nextReciter.id &&
-      !preloadedStreamRef.current.audioEl.error
-    ) {
-      return;
-    }
-
-    // Clean up previous preloaded audio if any
-    if (preloadedStreamRef.current) {
-      try {
-        preloadedStreamRef.current.audioEl.src = '';
-      } catch {
-        // ignore
-      }
-    }
-
-    const preloaded = preloadSurahTrack(nextSurah, nextReciter, (loadedDuration) => {
-      if (preloadedStreamRef.current && preloadedStreamRef.current.surahNum === nextSurah) {
-        preloadedStreamRef.current.track.duration = loadedDuration;
-      }
-    });
-
-    preloadedStreamRef.current = preloaded;
-  }, []);
-
-  triggerNextSurahPreloadRef.current = triggerNextSurahPreload;
-
-  // Unified completion handler: handles Repeat, Shuffle, and playlist / stream progression
+  // Unified completion handler: handles Repeat One, Repeat All, Shuffle, and playlist / stream progression
   const handleTrackEnded = () => {
     if (isStreamingRef.current || activeSourceRef.current === 'stream') {
-      if (loopRef.current) {
+      if (repeatModeRef.current === 'one') {
         replayActiveTrack();
       } else {
-        advanceStream(1);
+        // Autoplay advance: brief polite pause to allow audio engine cleanup, exactly matching manual next
+        setTimeout(() => {
+          if (isStreamingRef.current || activeSourceRef.current === 'stream') {
+            advanceStream(1);
+          }
+        }, 300);
       }
       return;
     }
@@ -350,16 +312,21 @@ function AppContent() {
 
     if (!currentTrack && currentSongs.length === 0) return;
 
-    // 1. Repeat mode active: repeat the active playing audio!
-    if (loopRef.current && currentTrack) {
+    // 1. Repeat mode ONE active: repeat the active playing audio!
+    if (repeatModeRef.current === 'one' && currentTrack) {
       replayActiveTrack();
       return;
     }
 
-    // 2. Shuffle mode active: randomly choose from playlist!
+    // 2. Shuffle mode active: randomly choose from playlist
     if (shuffleRef.current && currentSongs.length > 0) {
       if (currentSongs.length === 1) {
-        replayActiveTrack();
+        if (repeatModeRef.current === 'all') {
+          replayActiveTrack();
+        } else {
+          handleStop();
+          setCurrentLyricText(t.playlistFinished);
+        }
         return;
       }
       const otherSongs = currentSongs.filter(s => s.id !== currentId);
@@ -377,13 +344,19 @@ function AppContent() {
       return;
     }
 
-    // End of playlist: cleanly wrap back to the first track in playlist without auto-injecting new surahs
-    if (currentSongs.length > 0) {
+    // End of playlist:
+    // If Repeat All is active, cleanly wrap back to the first track in playlist and continue playing
+    if (repeatModeRef.current === 'all' && currentSongs.length > 0) {
       selectTrack(currentSongs[0], true);
+      return;
     }
+
+    // Otherwise: the player finishes the playlist items and stops!
+    handleStop();
+    setCurrentLyricText(t.playlistFinished);
   };
 
-  // Continuous Stream Advance (Closed-loop: Wraps 114 -> 1 in Mushaf order with preloading)
+  // Continuous Stream Advance (Closed-loop: Wraps 114 -> 1 in Mushaf order with robust loading)
   const advanceStream = async (direction: 1 | -1 = 1) => {
     if (isAdvancingRef.current) return;
     isAdvancingRef.current = true;
@@ -399,49 +372,27 @@ function AppContent() {
       setIsStreaming(true);
       isStreamingRef.current = true;
 
-      let nextReciter = streamReciterRef.current;
-      let nextTrack: Song | null = null;
-
-      // Check if this forward advance has preloaded audio ready in the background without error
-      if (
-        direction === 1 &&
-        preloadedStreamRef.current &&
-        preloadedStreamRef.current.surahNum === nextSurah &&
-        !preloadedStreamRef.current.audioEl.error
-      ) {
-        nextTrack = preloadedStreamRef.current.track;
-        if (preloadedStreamRef.current.reciterId) {
-          const matchedReciter = STREAM_RECITERS.find(r => r.id === preloadedStreamRef.current?.reciterId);
-          if (matchedReciter) {
-            nextReciter = matchedReciter;
-            streamReciterRef.current = matchedReciter;
-            setStreamReciter(matchedReciter);
-          }
+      // Only change reciter if reciter shuffle was specifically chosen!
+      let nextReciter = streamChosenReciterRef.current || streamReciterRef.current;
+      if (streamReciterModeRef.current === 'shuffle') {
+        const available = STREAM_RECITERS.filter(r => r.id !== streamReciterRef.current?.id && reciterHasSurah(r, nextSurah));
+        nextReciter = available[Math.floor(Math.random() * available.length)] || STREAM_RECITERS[0];
+      } else {
+        // 'single' mode: Strictly preserve the user's chosen reciter
+        const chosen = streamChosenReciterRef.current;
+        if (chosen && reciterHasSurah(chosen, nextSurah)) {
+          nextReciter = chosen;
+        } else if (!nextReciter || !reciterHasSurah(nextReciter, nextSurah)) {
+          nextReciter = getValidReciterForSurah(chosen || nextReciter || STREAM_RECITERS[0], nextSurah);
         }
-        preloadedStreamRef.current = null;
       }
-
-      if (!nextTrack) {
-        if (streamReciterModeRef.current === 'shuffle') {
-          const available = STREAM_RECITERS.filter(r => r.id !== streamReciterRef.current?.id && reciterHasSurah(r, nextSurah));
-          nextReciter = available[Math.floor(Math.random() * available.length)] || STREAM_RECITERS[0];
-        }
-        if (!nextReciter || !reciterHasSurah(nextReciter, nextSurah)) {
-          nextReciter = getValidReciterForSurah(nextReciter || STREAM_RECITERS[0], nextSurah);
-        }
-        streamReciterRef.current = nextReciter;
-        setStreamReciter(nextReciter);
-        nextTrack = await fetchSurahTrack(nextSurah, nextReciter);
-      }
+      streamReciterRef.current = nextReciter;
+      setStreamReciter(nextReciter);
 
       setCurrentLyricText(t.loadingTrack);
+      const nextTrack = await fetchSurahTrack(nextSurah, nextReciter);
       setStreamTrack(nextTrack);
       selectTrack(nextTrack, true);
-
-      // Trigger preloading for the upcoming surah in background
-      setTimeout(() => {
-        triggerNextSurahPreload(nextSurah);
-      }, 800);
     } catch (err) {
       console.error("Stream advance error:", err);
     } finally {
@@ -469,6 +420,9 @@ function AppContent() {
       streamReciterModeRef.current = mode;
       setStreamReciterMode(mode);
 
+      // Preserve chosen reciter for single mode
+      streamChosenReciterRef.current = reciter;
+
       const validReciter = getValidReciterForSurah(reciter, startSurah);
       streamReciterRef.current = validReciter;
       setStreamReciter(validReciter);
@@ -477,11 +431,6 @@ function AppContent() {
       const streamSong = await fetchSurahTrack(startSurah, validReciter);
       setStreamTrack(streamSong);
       selectTrack(streamSong, true);
-
-      // Buffer next surah in background right after starting
-      setTimeout(() => {
-        triggerNextSurahPreload(startSurah);
-      }, 1000);
     } catch (err) {
       console.error("Failed to start continuous stream:", err);
     } finally {
@@ -585,12 +534,12 @@ function AppContent() {
     });
   };
 
-  const handleLoopToggle = () => {
-    setLoop(prev => {
-      const next = !prev;
-      loopRef.current = next;
-      return next;
-    });
+  const handleRepeatOneToggle = () => {
+    setRepeatMode(prev => prev === 'one' ? 'none' : 'one');
+  };
+
+  const handleRepeatAllToggle = () => {
+    setRepeatMode(prev => prev === 'all' ? 'none' : 'all');
   };
 
   const handleRemoveSong = (songId: string) => {
@@ -637,9 +586,9 @@ function AppContent() {
   const nextStreamSurahMeta = QURAN_SURAHS.find(s => s.id === nextStreamSurahNum) || QURAN_SURAHS[0];
 
   return (
-    <div className="flex-1 w-full max-w-6xl mx-auto p-4 md:p-6 flex flex-col justify-between overflow-hidden">
+    <div className="flex-1 w-full max-w-6xl mx-auto p-3 sm:p-4 md:p-6 flex flex-col justify-between overflow-x-hidden overflow-y-auto lg:overflow-hidden min-h-screen">
       {/* Header Deck */}
-      <header className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-[var(--border-color)] mb-4 select-none">
+      <header className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pb-4 border-b border-[var(--border-color)] mb-4 select-none w-full">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] shadow-md">
             <Radio className="w-6 h-6 text-white animate-pulse" />
@@ -655,7 +604,7 @@ function AppContent() {
         </div>
 
         {/* Header Controls: Language Switcher & Theme Select */}
-        <div className="flex items-center gap-2.5 flex-wrap justify-end" id="header-controls-group">
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap justify-center sm:justify-end w-full sm:w-auto" id="header-controls-group">
           {/* Language Switch Button */}
           <button
             id="lang-toggle-btn"
@@ -668,41 +617,63 @@ function AppContent() {
             <span>{t.switchToLang}</span>
           </button>
 
-          {/* Theme selector controls */}
-          <div className="flex border border-[var(--border-color)] rounded-lg overflow-hidden bg-[var(--bg-panel)]">
-            {(['mushaf', 'kiswa', 'parchment', 'noor', 'fajr'] as ThemeId[]).map(themeId => {
-              const themeName = themeId === 'mushaf' ? t.themeMushaf :
-                                themeId === 'kiswa' ? t.themeKiswa :
-                                themeId === 'parchment' ? t.themeParchment :
-                                themeId === 'noor' ? t.themeNoor : t.themeFajr;
-              return (
-                <button
-                  key={themeId}
-                  id={`theme-btn-${themeId}`}
-                  onClick={() => setActiveTheme(themeId)}
-                  className={`px-2.5 py-1.5 text-[10px] font-bold uppercase transition-all ${
-                    activeTheme === themeId ? 'btn-active' : 'btn-inactive'
-                  }`}
-                >
-                  {themeName}
-                </button>
-              );
-            })}
+          {/* Theme selector controls - Divided into two sections to fit in the viewport in English mode */}
+          <div className="flex flex-col sm:flex-row items-center gap-1.5 w-full sm:w-auto" id="theme-selector-panel">
+            {/* Section 1: Classic & Holy Sanctuary themes (Mushaf, Kiswa, Parchment) */}
+            <div className="flex border border-[var(--border-color)] rounded-lg overflow-hidden bg-[var(--bg-panel)] shadow-sm w-full sm:w-auto justify-center">
+              {(['mushaf', 'kiswa', 'parchment'] as ThemeId[]).map(themeId => {
+                const themeName = themeId === 'mushaf' ? t.themeMushaf :
+                                  themeId === 'kiswa' ? t.themeKiswa : t.themeParchment;
+                return (
+                  <button
+                    key={themeId}
+                    id={`theme-btn-${themeId}`}
+                    onClick={() => setActiveTheme(themeId)}
+                    className={`flex-1 sm:flex-initial px-2 sm:px-2.5 py-1.5 text-[10px] font-bold uppercase transition-all whitespace-nowrap cursor-pointer text-center ${
+                      activeTheme === themeId ? 'btn-active' : 'btn-inactive'
+                    }`}
+                  >
+                    {themeName}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Section 2: Spiritual & Night Prayer themes (Noor, Fajr) */}
+            <div className="flex border border-[var(--border-color)] rounded-lg overflow-hidden bg-[var(--bg-panel)] shadow-sm w-full sm:w-auto justify-center">
+              {(['noor', 'fajr'] as ThemeId[]).map(themeId => {
+                const themeName = themeId === 'noor' ? t.themeNoor : t.themeFajr;
+                return (
+                  <button
+                    key={themeId}
+                    id={`theme-btn-${themeId}`}
+                    onClick={() => setActiveTheme(themeId)}
+                    className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 text-[10px] font-bold uppercase transition-all whitespace-nowrap cursor-pointer text-center ${
+                      activeTheme === themeId ? 'btn-active' : 'btn-inactive'
+                    }`}
+                  >
+                    {themeName}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content Layout */}
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 overflow-hidden min-h-0">
+      <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 overflow-visible lg:overflow-hidden min-h-0 w-full">
 
         {/* Left Hand: Creation & Inventory controls (5 cols) */}
-        <section className="lg:col-span-5 flex flex-col gap-4 overflow-y-auto pr-1 relative z-20">
+        <section className="lg:col-span-5 flex flex-col gap-4 overflow-visible lg:overflow-y-auto pr-0 lg:pr-1 relative z-20 w-full">
           {activeSource !== 'stream' && (
             <div className="glass-panel p-4 flex-1 flex flex-col min-h-[250px]">
               <PlaylistManager
                 songs={songs}
                 currentSong={currentSong}
                 isPlaying={isPlaying}
+                repeatMode={repeatMode}
+                onSetRepeatMode={setRepeatMode}
                 onSelectSong={selectTrack}
                 onRemoveSong={handleRemoveSong}
               />
@@ -731,16 +702,16 @@ function AppContent() {
         </section>
 
         {/* Right Hand: Deck Player & Visuals console (7 cols) */}
-        <section className="lg:col-span-7 flex flex-col gap-4 justify-between overflow-y-auto pr-1 relative z-10">
+        <section className="lg:col-span-7 flex flex-col gap-4 justify-between overflow-visible lg:overflow-y-auto pr-0 lg:pr-1 relative z-10 w-full">
 
           {/* Ticker HUD */}
-          <div className="glass-panel p-4">
+          <div className="glass-panel p-3 sm:p-4">
             <SongTicker song={currentSong} isPlaying={isPlaying} />
           </div>
 
           {/* Dedicated Recitation Station for Continuous Stream vs Lyrics/Ayahs Timeline for other sections */}
           {activeSource === 'stream' ? (
-            <div className="glass-panel p-6 flex-1 flex flex-col justify-between items-center text-center relative overflow-hidden min-h-[300px]">
+            <div className="glass-panel p-4 sm:p-6 flex-1 flex flex-col justify-between items-center text-center relative overflow-hidden min-h-[300px]">
               {/* Scanline grid overlay */}
               <div className="absolute inset-0 bg-scanlines pointer-events-none opacity-5" />
               {/* Subtle ambient background glow */}
@@ -771,18 +742,18 @@ function AppContent() {
               </div>
 
               {/* Grand Arabic Surah Calligraphy & Recitation Details */}
-              <div className="my-auto flex flex-col items-center gap-2.5 z-10 py-3">
+              <div className="my-auto flex flex-col items-center gap-2.5 z-10 py-3 w-full">
                 <span className="text-[10px] uppercase font-mono tracking-widest text-[var(--accent-secondary)] flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>{t.streamNowPlaying}</span>
                 </span>
 
                 {/* Grand Arabic Surah Name */}
-                <h2 className="text-3xl sm:text-5xl font-bold font-arabic-title text-theme-primary drop-shadow-[0_0_15px_var(--accent-primary)]">
+                <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold font-arabic-title text-theme-primary drop-shadow-[0_0_15px_var(--accent-primary)] text-center break-words px-2">
                   سورة {activeStreamSurahMeta.nameArabic}
                 </h2>
 
-                <div className="text-sm sm:text-base font-semibold text-theme-muted flex items-center gap-2">
+                <div className="text-xs sm:text-sm md:text-base font-semibold text-theme-muted flex items-center justify-center gap-2 flex-wrap text-center">
                   <span>Surah {activeStreamSurahMeta.id}. {activeStreamSurahMeta.name}</span>
                   <span className="text-[11px] px-2 py-0.5 rounded bg-white/10 font-mono">
                     {activeStreamSurahMeta.verses} {t.versesCount}
@@ -790,7 +761,7 @@ function AppContent() {
                 </div>
 
                 {/* Active Reciter Badge */}
-                <div className="mt-1 px-4 py-1 rounded-full bg-black/30 border border-[var(--border-color)] text-xs text-[var(--accent-secondary)] flex items-center gap-2 font-medium">
+                <div className="mt-1 px-4 py-1 rounded-full bg-black/30 border border-[var(--border-color)] text-xs text-[var(--accent-secondary)] flex items-center gap-2 font-medium flex-wrap justify-center text-center max-w-full">
                   <User className="w-3.5 h-3.5" />
                   <span>
                     {streamReciter 
@@ -818,7 +789,7 @@ function AppContent() {
               </div>
 
               {/* Bottom: Next in Queue Mushaf Notice */}
-              <div className="w-full flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-black/30 border border-[var(--border-color)] text-theme-muted z-10 select-none">
+              <div className="w-full flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-black/30 border border-[var(--border-color)] text-theme-muted z-10 select-none flex-wrap gap-1">
                 <div className="flex items-center gap-2">
                   <SkipForward className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
                   <span className="font-semibold text-theme-primary">{t.streamNextInQueue}:</span>
@@ -836,13 +807,13 @@ function AppContent() {
             </div>
           ) : (
             /* Karaoke Lyrics / Ayahs Timeline (for all other sections) */
-            <div className="glass-panel p-4 flex-1 flex flex-col justify-between gap-4 min-h-[300px]">
+            <div className="glass-panel p-3 sm:p-4 flex-1 flex flex-col justify-between gap-4 min-h-[300px]">
               {(currentSong 
                 ? (currentSong.lyrics && currentSong.lyrics.length > 0) 
                 : showLyricsSection
               ) && (
                 <div
-                  className="flex-1 flex flex-col justify-center items-center text-center p-6 bg-[var(--bg-screen)] rounded-xl border border-[var(--border-color)] shadow-inner min-h-[100px] relative overflow-hidden"
+                  className="flex-1 flex flex-col justify-center items-center text-center p-4 sm:p-6 bg-[var(--bg-screen)] rounded-xl border border-[var(--border-color)] shadow-inner min-h-[100px] relative overflow-hidden"
                   id="lyrics-screen-display"
                 >
                   {/* Scanline grid overlay */}
@@ -870,7 +841,7 @@ function AppContent() {
           )}
 
           {/* Player controls */}
-          <div className="glass-panel p-4">
+          <div className="glass-panel p-3 sm:p-4">
             <MediaControls
               isPlaying={isPlaying}
               isMuted={isMuted}
@@ -878,7 +849,7 @@ function AppContent() {
               currentTime={currentTime}
               duration={duration}
               shuffle={shuffle}
-              loop={loop}
+              repeatMode={repeatMode}
               onPlayPause={handlePlayPause}
               onStop={handleStop}
               onNext={handleNext}
@@ -887,7 +858,8 @@ function AppContent() {
               onVolumeChange={(v) => { setVolume(v); audioEngine.current.setVolume(v); }}
               onMuteToggle={() => { setIsMuted(!isMuted); audioEngine.current.setMute(!isMuted); }}
               onShuffleToggle={handleShuffleToggle}
-              onLoopToggle={handleLoopToggle}
+              onRepeatOneToggle={handleRepeatOneToggle}
+              onRepeatAllToggle={handleRepeatAllToggle}
             />
           </div>
 
