@@ -1,13 +1,8 @@
 import type { Song } from '../types/music';
 
 export class AudioEngine {
-  private ctx: AudioContext | null = null;
-  private analyser: AnalyserNode | null = null;
-  private masterGain: GainNode | null = null;
-  
-  // HTML5 Audio Element for playback
+  // HTML5 Audio Element for native direct playback
   private audioEl: HTMLAudioElement | null = null;
-  private sourceNode: MediaElementAudioSourceNode | null = null;
   
   public currentSong: Song | null = null;
   public isPlaying = false;
@@ -112,17 +107,9 @@ export class AudioEngine {
   }
 
   public init() {
-    if (this.ctx) return;
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    this.ctx = new AudioContextClass();
-    
-    this.analyser = this.ctx.createAnalyser();
-    this.analyser.fftSize = 256;
-    
-    this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.value = this.isMuted ? 0 : this.volume;
+    if (this.audioEl) return;
 
-    // Create and configure HTML5 Audio Element
+    // Create and configure HTML5 Audio Element for direct native hardware audio routing
     this.audioEl = new Audio();
     this.audioEl.crossOrigin = "anonymous";
     this.audioEl.preload = "auto";
@@ -214,12 +201,6 @@ export class AudioEngine {
         this.errorCallback(this.audioEl?.error || e);
       }
     });
-    
-    // Route Audio Element -> SourceNode -> Analyser -> MasterGain -> Destination
-    this.sourceNode = this.ctx.createMediaElementSource(this.audioEl);
-    this.sourceNode.connect(this.analyser);
-    this.analyser.connect(this.masterGain);
-    this.masterGain.connect(this.ctx.destination);
   }
 
   private isRetryingFallback = false;
@@ -268,16 +249,12 @@ export class AudioEngine {
   }
 
   public getAnalyser(): AnalyserNode | null {
-    return this.analyser;
+    return null;
   }
 
   public start(song: Song, resumeFromTime = 0) {
     this.init();
-    if (!this.ctx || !this.audioEl) return;
-
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
+    if (!this.audioEl) return;
 
     this.isPlaying = true;
     this.currentSong = song;
@@ -365,18 +342,12 @@ export class AudioEngine {
     if (this.audioEl) {
       this.audioEl.volume = this.isMuted ? 0 : this.volume;
     }
-    if (this.masterGain && this.ctx) {
-      this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : this.volume, this.ctx.currentTime);
-    }
   }
 
   public setMute(val: boolean) {
     this.isMuted = val;
     if (this.audioEl) {
       this.audioEl.volume = this.isMuted ? 0 : this.volume;
-    }
-    if (this.masterGain && this.ctx) {
-      this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : this.volume, this.ctx.currentTime);
     }
   }
 

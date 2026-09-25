@@ -15,6 +15,7 @@ import {
   reciterHasSurah,
   getValidReciterForSurah
 } from './components/ContinuousStream';
+import { MediaNotificationService } from './services/mediaNotificationService';
 
 const DEFAULT_RECITER: StreamReciter = STREAM_RECITERS.find(r => r.id === 30) || STREAM_RECITERS[0];
 
@@ -109,6 +110,27 @@ function AppContent() {
 
   const handleTrackEndedRef = useRef<() => void>(() => {});
   const advanceStreamRef = useRef<(direction?: 1 | -1) => void>(() => {});
+  const handlePlayPauseRef = useRef<() => void>(() => {});
+  const handleNextRef = useRef<() => void>(() => {});
+  const handlePrevRef = useRef<() => void>(() => {});
+
+  // Initialize Native Android Notification Controls & Web MediaSession
+  useEffect(() => {
+    MediaNotificationService.init((action) => {
+      if (action === 'play' || action === 'pause') {
+        handlePlayPauseRef.current();
+      } else if (action === 'next') {
+        handleNextRef.current();
+      } else if (action === 'prev') {
+        handlePrevRef.current();
+      }
+    });
+  }, []);
+
+  // Synchronize active song & playback state to notification control panel
+  useEffect(() => {
+    MediaNotificationService.update(currentSong, isPlaying);
+  }, [currentSong, isPlaying]);
 
   // Register dynamic duration and lifecycle listeners on mount to resolve true durations of tracks
   useEffect(() => {
@@ -254,6 +276,7 @@ function AppContent() {
     setCurrentTime(0);
     lastSpokenLineIndex.current = -1;
     setCurrentLyricText(currentSong ? t.readyStatus : t.noSongsLoaded);
+    MediaNotificationService.stop();
   };
 
   const handleSeek = (time: number) => {
@@ -269,7 +292,7 @@ function AppContent() {
     }
   };
 
-  // Repeats the currently active playing track from 0:00
+  // Repeats the currently active playing track from 0:00 immediately
   const replayActiveTrack = () => {
     const track = currentSongRef.current;
     if (!track) return;
@@ -280,12 +303,10 @@ function AppContent() {
     if (track.lyrics && track.lyrics.length > 0) {
       syncLyrics(0);
     }
-    setTimeout(() => {
-      audioEngine.current.start(track, 0);
-      setIsPlaying(true);
-      isPlayingRef.current = true;
-      isAdvancingRef.current = false;
-    }, 100);
+    audioEngine.current.start(track, 0);
+    setIsPlaying(true);
+    isPlayingRef.current = true;
+    isAdvancingRef.current = false;
   };
 
   // Unified completion handler: handles Repeat One, Repeat All, Shuffle, and playlist / stream progression
@@ -294,12 +315,8 @@ function AppContent() {
       if (repeatModeRef.current === 'one') {
         replayActiveTrack();
       } else {
-        // Autoplay advance: brief polite pause to allow audio engine cleanup, exactly matching manual next
-        setTimeout(() => {
-          if (isStreamingRef.current || activeSourceRef.current === 'stream') {
-            advanceStream(1);
-          }
-        }, 300);
+        // Immediate continuous stream advance: never suspended by Android background timers
+        advanceStream(1);
       }
       return;
     }
@@ -406,6 +423,9 @@ function AppContent() {
   useEffect(() => {
     handleTrackEndedRef.current = handleTrackEnded;
     advanceStreamRef.current = advanceStream;
+    handlePlayPauseRef.current = handlePlayPause;
+    handleNextRef.current = handleNext;
+    handlePrevRef.current = handlePrev;
   });
 
   const handleStartStream = async (startSurah: number, mode: 'single' | 'shuffle', reciter: StreamReciter) => {
@@ -518,12 +538,10 @@ function AppContent() {
     currentSongRef.current = song;
     setDuration(song.duration);
 
-    // Autoplay next song seamlessly without stale time race condition
-    startTimeoutRef.current = window.setTimeout(() => {
-      audioEngine.current.start(song, 0);
-      setIsPlaying(true);
-      isPlayingRef.current = true;
-    }, 50);
+    // Immediate autoplay: does not depend on background-throttled setTimeout
+    audioEngine.current.start(song, 0);
+    setIsPlaying(true);
+    isPlayingRef.current = true;
   };
 
   const handleShuffleToggle = () => {
